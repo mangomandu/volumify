@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🎚️ Spotify Linear Volume
+<img src="assets/icon.png" width="92" alt="app icon">
+
+# Spotify Linear Volume
 
 ### Spotify's volume slider, fixed.
 
@@ -53,10 +55,10 @@ Spotify's own volume stays at 100%; the app only sets the **Windows session volu
 
 ## 🚀 Features
 
-- 🎚️ **Tunable perceptual curve** — presets from *강하게 (0.35)* to *저음 더 조용 (2.0)*, with a **live curve graph**.
-- ⌨️ **Global hotkeys** — `Ctrl+Alt+↑ / ↓` from anywhere, with an on‑screen readout.
+- 🎚️ **Tunable perceptual curve** — presets from *강하게 (0.35)* through *리니어 (1.0)* to *스포티파이 기본 (2.0)*, with a **live curve graph**.
+- ⌨️ **Global hotkeys** — `Ctrl+Alt+↑ / ↓` from anywhere; the overlay, tray tooltip and panel show the level.
 - 🧲 **Two ways to stick to Spotify** (pick one):
-  - **Overlay** — a slim bar right on the native rail, with the optional **hover fly‑out** above.
+  - **Overlay** — a slim bar right on the native rail, with an optional **hover fly‑out** that appears only when the rail gets too small to drag.
   - **Compact dock** — a small panel that follows the Spotify window.
 - 💾 **Remembers everything** (`%APPDATA%\SpotifyLinearVolume\settings.json`) and optional **run at startup**.
 - 📦 **Single self‑contained `.exe`** — no installer, no runtime to chase.
@@ -88,7 +90,8 @@ dotnet build -c Release
 
 ```powershell
 dotnet publish -c Release -r win-x64 --self-contained `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true
 ```
 
 The standalone `SpotifyLinearVolume.exe` lands in `bin\Release\net8.0-windows\win-x64\publish\`.
