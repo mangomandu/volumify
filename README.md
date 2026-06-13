@@ -30,11 +30,11 @@ Spotify Desktop's volume is **top‑heavy**: the bottom half of the slider does 
 
 It overlays Spotify's **own** volume slider — matched to its position and width as the window resizes, and staying clear of the neighbouring buttons:
 
-<div align="center"><img src="assets/overlay.png" width="560" alt="The green overlay sitting exactly on Spotify's native volume rail"></div>
+<div align="center"><img src="assets/overlay.png" width="380" alt="The green overlay sitting exactly on Spotify's native volume rail"></div>
 
 Window too narrow to drag the little rail? **Hover it for a roomy fly‑out** with a live %:
 
-<div align="center"><img src="assets/popup.png" width="430" alt="Hover fly-out: a roomy slider with a live percentage readout"></div>
+<div align="center"><img src="assets/popup.png" width="380" alt="Hover fly-out: a roomy slider with a live percentage readout"></div>
 
 ## 🎯 How it works
 
