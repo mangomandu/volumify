@@ -26,6 +26,7 @@ public sealed class TrayAppContext : ApplicationContext
     private readonly NotifyIcon _tray;
     private readonly VolumeModel _model;
     private readonly HotkeyManager _hotkeys = new();
+    private readonly Icon? _appIcon = LoadAppIcon();
     private readonly ControlPanelForm _panel;
     private readonly OverlayBarForm _overlay;
 
@@ -70,7 +71,7 @@ public sealed class TrayAppContext : ApplicationContext
 
         _tray = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = _appIcon ?? SystemIcons.Application,
             Text = "Spotify Linear Volume",
             Visible = true,
             ContextMenuStrip = BuildMenu(),
@@ -250,6 +251,23 @@ public sealed class TrayAppContext : ApplicationContext
             _presetItems[i].Checked = Math.Abs(_model.P - _presets[i].P) < 0.001f;
     }
 
+    private static Icon? LoadAppIcon()
+    {
+        try
+        {
+            var asm = typeof(TrayAppContext).Assembly;
+            string? name = Array.Find(asm.GetManifestResourceNames(),
+                n => n.EndsWith("appicon.ico", StringComparison.OrdinalIgnoreCase));
+            if (name != null)
+            {
+                using var s = asm.GetManifestResourceStream(name);
+                if (s != null) return new Icon(s, SystemInformation.SmallIconSize);
+            }
+        }
+        catch { /* fall back to the system icon */ }
+        return null;
+    }
+
     private void Exit()
     {
         _tray.Visible = false;
@@ -261,6 +279,7 @@ public sealed class TrayAppContext : ApplicationContext
         if (disposing)
         {
             _tray.Dispose();
+            _appIcon?.Dispose();
             _hotkeys.Dispose();
             _model.Dispose();
             _panel.Dispose();

@@ -9,12 +9,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SpotifyLinearVolume</AssemblyName>
     <RootNamespace>SpotifyLinearVolume</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>appicon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="appicon.ico" />
   </ItemGroup>
 
 </Project>
