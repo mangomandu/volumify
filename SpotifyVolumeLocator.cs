@@ -21,11 +21,12 @@ namespace SpotifyLinearVolume;
 /// </summary>
 public static class SpotifyVolumeLocator
 {
-    private const int PlaybarSliderOffset = 54; // slider top above the window's bottom edge
-    private const int SliderHeight = 16;
-    private const int RailRightInset = 37;      // UIA slider width overshoots the drawn rail by ~37px
-    private const int ButtonGap = 10;           // keep this many px clear of the next button
+    private const int PlaybarSliderOffset = 56; // slider top above the window's bottom edge (center stays at bottom-46)
+    private const int SliderHeight = 20;        // a bit taller than the rail so it fully hides it vertically
+    private const int RailRightInset = 32;      // UIA width overshoots the rail; trim a touch less so the box covers the rail's right cap
+    private const int ButtonGap = 6;            // reach this close to the next button (covers more of a compressed rail)
     private const int WindowEdgeGap = 8;        // never poke past the window's right edge
+    private const int RailLeftCover = 3;        // extend left over the rail's left cap (gap to the speaker icon absorbs it)
 
     // Accessible-name fragments for the controls immediately right of the volume rail
     // (mini-player / fullscreen) in the locales we support. Used to bound the overlay's right edge.
@@ -89,7 +90,9 @@ public static class SpotifyVolumeLocator
             width = Math.Min(width, win.Right - x - WindowEdgeGap);      // don't leave the window
             width = Math.Max(20, width);
 
-            return new Rectangle(x, win.Bottom - PlaybarSliderOffset, width, SliderHeight);
+            // Extend a few px left so the rail's left cap is covered too (the right edge — button/window
+            // bounded — is unchanged: (x - cover) + (width + cover) == x + width).
+            return new Rectangle(x - RailLeftCover, win.Bottom - PlaybarSliderOffset, width + RailLeftCover, SliderHeight);
         }
         catch
         {

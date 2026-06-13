@@ -12,6 +12,7 @@ public sealed class OverlayBarForm : Form
 {
     private const long ResizeDebounceMs = 175;
     private const int OverlayTrackPad = 2; // the overlay never grows past the rail; the knob self-clamps inside
+    private const int PopupNarrowWidth = 78; // only fly out the popup when the overlay is this narrow or less
 
     private readonly VolumeModel _model;
     private readonly VolumeBar _bar = new();
@@ -146,7 +147,10 @@ public sealed class OverlayBarForm : Form
         bool overOverlay = hot.Contains(Cursor.Position);
         bool overPopup = _popup?.ContainsCursor(6) ?? false;
 
-        if (overOverlay || overPopup)
+        // Only fly out when the rail is too small to drag comfortably. On a normal-width rail,
+        // hovering does nothing. Once open, staying on the popup keeps it open regardless of width.
+        bool narrow = Width <= PopupNarrowWidth;
+        if ((overOverlay && narrow) || overPopup)
         {
             _hoverLeftTick = 0;
             ShowPopup();
