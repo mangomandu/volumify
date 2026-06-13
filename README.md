@@ -6,10 +6,13 @@
 
 **A perceptual, _linear‑feeling_ volume curve for Spotify on Windows — without ever touching the app.**
 
+[![Download latest release](https://img.shields.io/github/v/release/mangomandu/spotify-linear-volume?label=Download%20.exe&logo=github&color=1ed760)](https://github.com/mangomandu/spotify-linear-volume/releases/latest)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](#)
-[![Lossless & auto‑update safe](https://img.shields.io/badge/Spotify-lossless%20%26%20update%20safe-1ed760?logo=spotify&logoColor=white)](#why-not-just-spicetify)
+[![Lossless & auto‑update safe](https://img.shields.io/badge/Spotify-lossless%20%26%20update%20safe-1ed760?logo=spotify&logoColor=white)](#-why-not-just-spicetify)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1ed760)](LICENSE)
+
+### [⬇️ Download the latest `.exe`](https://github.com/mangomandu/spotify-linear-volume/releases/latest) &nbsp;·&nbsp; no install, just run
 
 <img src="assets/curve.png" width="720" alt="Power curve vs. Spotify's top-heavy default — make the whole slider usable">
 
@@ -71,7 +74,9 @@ Because the fix lives entirely in Windows audio, Spotify is free to update itsel
 
 ## 🛠️ Build & run
 
-> Needs the [.NET 8 SDK](https://dotnet.microsoft.com/download). Then leave Spotify's own volume at 100% and let this shape it.
+> **Just want to use it?** [Download the `.exe`](https://github.com/mangomandu/spotify-linear-volume/releases/latest) — it's self‑contained, no build required. Run it, and it lives in your tray. Leave Spotify's own volume at 100%.
+
+To build from source you need the [.NET 8 SDK](https://dotnet.microsoft.com/download):
 
 ```powershell
 dotnet build -c Release
