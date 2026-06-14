@@ -2,9 +2,15 @@ using System.Drawing.Drawing2D;
 
 namespace SpotifyLinearVolume;
 
-/// <summary>Slim horizontal volume bar shown in the collapsed state. Drag to set position.</summary>
+/// <summary>Slim horizontal volume bar. Drag to set position. The track is inset from the control
+/// edges by <see cref="EdgePad"/> and the knob centre travels the full track [pad, W-pad], so it
+/// lines up with the rail it overlays. The overlay sets EdgePad to the knob radius — the box reaches
+/// a radius past the drawn rail only so the knob never clips, while the track stays the rail's length.
+/// The popup sets a larger EdgePad for a roomy slider.</summary>
 public sealed class VolumeBar : Control
 {
+    private const int KnobR = 6; // knob is a 12px circle
+
     private static readonly Color Accent = Color.FromArgb(30, 215, 96);
 
     private int _pad = 14;
@@ -13,8 +19,7 @@ public sealed class VolumeBar : Control
 
     public event Action<float>? PositionPicked;
 
-    /// <summary>Horizontal inset of the track from the control edges. The overlay sets this small
-    /// (just enough for the knob) so the green track spans Spotify's rail edge-to-edge.</summary>
+    /// <summary>Horizontal inset of the track (and the knob's travel) from the control edges.</summary>
     public int EdgePad
     {
         get => _pad;
@@ -62,8 +67,9 @@ public sealed class VolumeBar : Control
 
     private void Pick(int mouseX)
     {
-        int width = Math.Max(1, Width - 2 * _pad);
-        PositionPicked?.Invoke(Math.Clamp((float)(mouseX - _pad) / width, 0f, 1f));
+        int x0 = _pad, x1 = Width - _pad;
+        int width = Math.Max(1, x1 - x0);
+        PositionPicked?.Invoke(Math.Clamp((float)(mouseX - x0) / width, 0f, 1f));
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -74,20 +80,19 @@ public sealed class VolumeBar : Control
         int x0 = _pad, x1 = Width - _pad;
         if (x1 <= x0) return;
 
+        // The knob centre travels the full track [x0, x1] so it lines up with the rail's own knob.
+        int kx = Math.Clamp(x0 + (int)Math.Round((x1 - x0) * _position), x0, x1);
+
         using (var track = new Pen(Color.FromArgb(60, 60, 60), 4f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
             g.DrawLine(track, x0, y, x1, y);
 
-        int fx = x0 + (int)((x1 - x0) * _position);
-        if (fx > x0)
+        if (kx > x0)
             using (var fill = new Pen(Accent, 4f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
-                g.DrawLine(fill, x0, y, fx, y);
+                g.DrawLine(fill, x0, y, kx, y);
 
-        // Keep the 12px knob fully inside the control even when EdgePad is tiny (overlay mode),
-        // so a thin overlay never has to extend past Spotify's rail to avoid clipping the knob.
-        int kx = (x1 - x0 >= 12) ? Math.Clamp(fx, x0 + 6, x1 - 6) : (x0 + x1) / 2;
+        // Plain white knob (no green ring) so it matches Spotify's own knob and the fill ends exactly
+        // where Spotify's does.
         using (var dot = new SolidBrush(Color.White))
-            g.FillEllipse(dot, kx - 6, y - 6, 12, 12);
-        using (var ring = new Pen(Accent, 2f))
-            g.DrawEllipse(ring, kx - 6, y - 6, 12, 12);
+            g.FillEllipse(dot, kx - KnobR, y - KnobR, 2 * KnobR, 2 * KnobR);
     }
 }

@@ -11,7 +11,6 @@ namespace SpotifyLinearVolume;
 public sealed class OverlayBarForm : Form
 {
     private const long ResizeDebounceMs = 175;
-    private const int OverlayTrackPad = 2; // the overlay never grows past the rail; the knob self-clamps inside
     private const int PopupNarrowWidth = 78; // only fly out the popup when the overlay is this narrow or less
 
     private readonly VolumeModel _model;
@@ -63,7 +62,7 @@ public sealed class OverlayBarForm : Form
 
         _bar.Dock = DockStyle.Fill;
         _bar.BackColor = Color.Black; // the bar fills the form, so this is what shows around the track
-        _bar.EdgePad = OverlayTrackPad; // track ≈ full rail; round caps stay inside, knob self-clamps
+        _bar.EdgePad = 8; // track spans Spotify's rail; the box's outer 8px hold the knob + hide Spotify's knob edge
         _bar.PositionPicked += pos => _model.SetPosition(pos);
         _bar.Set(_model.Position); // initialize from the current model (not 0)
         Controls.Add(_bar);
@@ -142,23 +141,25 @@ public sealed class OverlayBarForm : Form
     private void HoverTick()
     {
         if (!_active || !_popupEnabled || IsDisposed) { _hoverTimer.Stop(); return; }
-        if (!Visible) { HidePopup(); return; } // overlay hidden (e.g. mid-resize) → no popup
 
-        var hot = Bounds; hot.Inflate(4, 4);
-        bool overOverlay = hot.Contains(Cursor.Position);
+        // Keep the popup open whenever the cursor is on it — even if the overlay momentarily blinks
+        // (e.g. Spotify reflows as we set its volume). Otherwise dragging the popup slider would
+        // dismiss it mid-drag. Re-assert its position each tick so it tracks the overlay.
         bool overPopup = _popup?.ContainsCursor(6) ?? false;
+        if (overPopup) { _hoverLeftTick = 0; ShowPopup(); return; }
 
         // Only fly out when the rail is too small to drag comfortably. On a normal-width rail,
         // hovering does nothing. Once open, staying on the popup keeps it open regardless of width.
-        bool narrow = Width <= PopupNarrowWidth;
-        if ((overOverlay && narrow) || overPopup)
+        var hot = Bounds; hot.Inflate(4, 4);
+        bool overOverlay = Visible && Width <= PopupNarrowWidth && hot.Contains(Cursor.Position);
+        if (overOverlay)
         {
             _hoverLeftTick = 0;
             ShowPopup();
         }
         else if (_popup is { Visible: true })
         {
-            // grace period so crossing the gap between overlay and popup doesn't flicker it shut
+            // grace period so crossing the overlay→popup gap (or a brief overlay blink) doesn't flicker it shut
             if (_hoverLeftTick == 0) _hoverLeftTick = Environment.TickCount64;
             else if (Environment.TickCount64 - _hoverLeftTick > 220) HidePopup();
         }
