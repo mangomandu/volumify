@@ -1,33 +1,26 @@
 namespace SpotifyLinearVolume;
 
 /// <summary>
-/// Tray application: owns the shared <see cref="VolumeModel"/>, the NotifyIcon, global
-/// hotkeys, the OSD and the control-panel window, keeping them all in sync.
+/// Tray application: owns the shared <see cref="VolumeModel"/>, the NotifyIcon, the overlay
+/// and the control-panel window, keeping them all in sync.
 /// </summary>
 public sealed class TrayAppContext : ApplicationContext
 {
-    private const uint VK_UP = 0x26;
-    private const uint VK_DOWN = 0x28;
-    private const float Step = 0.05f;
-
-    // gain = position ^ p.  p<1 = loud/responsive low end, gentle top.
-    // p=1 = linear (proportional).  p>1 = quiet low end, fine low-volume control.
-    // We now drive Spotify's OWN volume slider (= position^p), so Spotify's top-heavy curve is
-    // applied on top. Smaller p boosts the low end to compensate it; p=1 sends Spotify's raw curve.
-    // These are a starting estimate — fine-tune by feel.
+    // We drive Spotify's OWN volume slider to position^p, and Spotify's own top-heavy curve is applied
+    // on top. p<1 boosts the low end (강하게); p=1 is the neutral baseline; p→2.0 leans into Spotify's
+    // stock top-heavy feel ("스포티파이 디폴트"). Starting points — fine-tune by feel.
     private readonly (string Label, float P)[] _presets =
     {
-        ("강하게 (0.2)", 0.2f),
-        ("균형 (0.3)", 0.3f),
-        ("약하게 (0.45)", 0.45f),
-        ("은은하게 (0.65)", 0.65f),
-        ("보정 없음 (1.0)", 1.0f),
+        ("강하게 (0.3)", 0.3f),
+        ("살짝 강하게 (0.5)", 0.5f),
+        ("기준 (1.0)", 1.0f),
+        ("약하게 (1.5)", 1.5f),
+        ("스포티파이 디폴트 (2.0)", 2.0f),
     };
 
     private readonly AppSettings _settings = SettingsStore.Load();
     private readonly NotifyIcon _tray;
     private readonly VolumeModel _model;
-    private readonly HotkeyManager _hotkeys = new();
     private readonly Icon? _appIcon = LoadAppIcon();
     private readonly ControlPanelForm _panel;
     private readonly OverlayBarForm _overlay;
@@ -82,13 +75,6 @@ public sealed class TrayAppContext : ApplicationContext
         {
             if (e.Button == MouseButtons.Left) TogglePanel();
         };
-
-        bool upOk = _hotkeys.Register(VK_UP, () => _model.Nudge(+Step));
-        bool downOk = _hotkeys.Register(VK_DOWN, () => _model.Nudge(-Step));
-        if (!upOk || !downOk)
-            _tray.ShowBalloonTip(3000, "Spotify Linear Volume",
-                "전역 핫키(Ctrl+Alt+↑/↓) 등록 실패 — 다른 앱이 점유 중일 수 있어요. 트레이/슬라이더로 조절하세요.",
-                ToolTipIcon.Warning);
 
         _model.Changed += OnModelChanged;
         RefreshTrayUi();
@@ -195,8 +181,6 @@ public sealed class TrayAppContext : ApplicationContext
         }
         menu.Items.Add(curve);
 
-        menu.Items.Add(new ToolStripMenuItem("↑ 볼륨 (Ctrl+Alt+↑)", null, (_, _) => _model.Nudge(+Step)));
-        menu.Items.Add(new ToolStripMenuItem("↓ 볼륨 (Ctrl+Alt+↓)", null, (_, _) => _model.Nudge(-Step)));
         menu.Items.Add(new ToolStripSeparator());
 
         _dockItem = new ToolStripMenuItem("Spotify 창에 붙이기", null, (_, _) => ToggleDock())
@@ -282,7 +266,6 @@ public sealed class TrayAppContext : ApplicationContext
         {
             _tray.Dispose();
             _appIcon?.Dispose();
-            _hotkeys.Dispose();
             _model.Dispose();
             _panel.Dispose();
             _overlay.Dispose();

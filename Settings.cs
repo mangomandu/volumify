@@ -5,7 +5,7 @@ namespace SpotifyLinearVolume;
 
 public sealed class AppSettings
 {
-    public float P { get; set; } = 0.5f;
+    public float P { get; set; } = 1.0f; // neutral baseline; lower = boost low end, up to 2.0 = Spotify's default feel
     public bool DockToSpotify { get; set; }
     public bool HasDockOffset { get; set; }
     public int DockOffsetX { get; set; }

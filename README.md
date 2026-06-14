@@ -44,23 +44,23 @@ You see one slider; the app remaps it. Move it to position `x` (0–1) and it se
 gain = x ^ p
 ```
 
-Spotify's built‑in curve is steep at the top (the bottom half barely moves), so a `p` **below 1** lifts the low end and cancels it out — the whole slider becomes usable. Pick by feel from the tray or the panel's **live curve graph**:
+Spotify's built‑in curve is steep at the top (the bottom half barely moves), so a `p` **below 1** lifts the low end and the whole slider becomes usable. `p = 1` is the neutral baseline; higher `p` leans back toward Spotify's own top‑heavy feel. Pick by feel from the tray or the panel's **live curve graph**:
 
 | preset | `p` | feel |
 |--------|----:|------|
-| **강하게** | 0.2 | loud, punchy low end |
-| **균형** | 0.3 | balanced — a good starting point |
-| **약하게** | 0.45 | gentler |
-| **은은하게** | 0.65 | subtle |
-| **보정 없음** | 1.0 | no correction (Spotify's raw curve) |
+| **강하게** | 0.3 | most low‑end boost |
+| **살짝 강하게** | 0.5 | gentler boost |
+| **기준** | 1.0 | neutral baseline |
+| **약하게** | 1.5 | closer to Spotify's stock curve |
+| **스포티파이 디폴트** | 2.0 | Spotify's own top‑heavy default |
 
 > These are starting points — tune to taste. Because the value it sets is Spotify's *real* volume, nothing inside Spotify is touched and the level follows you to every device.
 
 ## 🚀 Features
 
-- 🎚️ **Tunable perceptual curve** — presets from *강하게 (0.2)* to *보정 없음 (1.0)*, with a **live curve graph**.
+- 🎚️ **Tunable perceptual curve** — presets from *강하게 (0.3)* through *기준 (1.0)* to *스포티파이 디폴트 (2.0)*, with a **live curve graph**.
 - 📱 **Syncs to every device** — it moves Spotify's own volume, so your phone and Connect speakers follow along (no separate OS‑only gain).
-- ⌨️ **Global hotkeys** — `Ctrl+Alt+↑ / ↓` from anywhere; the overlay, tray tooltip and panel show the level.
+- 👁️ **Level shown everywhere** — the overlay, tray tooltip and control panel all reflect the current volume.
 - 🧲 **Two ways to stick to Spotify** (pick one):
   - **Overlay** — a slim bar right on the native rail, with an optional **hover fly‑out** that appears only when the rail gets too small to drag.
   - **Compact dock** — a small panel that follows the Spotify window.
