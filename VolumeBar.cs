@@ -11,7 +11,7 @@ public sealed class VolumeBar : Control
 {
     private const int KnobR = 6; // knob is a 12px circle
 
-    private static readonly Color Accent = Color.FromArgb(30, 215, 96);
+    private static readonly Color Accent = Color.FromArgb(30, 215, 96); // Spotify green
 
     private int _pad = 14;
     private float _position;

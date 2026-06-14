@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace SpotifyLinearVolume;
 
@@ -10,10 +11,14 @@ public static class SpotifyWindowTracker
     private struct Rect { public int Left, Top, Right, Bottom; }
 
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     /// <summary>
     /// Expensive: enumerate Spotify processes and return the largest visible, non-minimized
@@ -25,18 +30,26 @@ public static class SpotifyWindowTracker
         var procs = Process.GetProcessesByName("Spotify");
         try
         {
+            var pids = new HashSet<uint>();
+            foreach (var p in procs) pids.Add((uint)p.Id);
+
             IntPtr best = IntPtr.Zero;
             long bestArea = 0;
-            foreach (var p in procs)
+            uint bestPid = 0;
+            EnumWindows((h, _) =>
             {
-                IntPtr h = p.MainWindowHandle;
-                if (h == IntPtr.Zero || IsIconic(h) || !IsWindowVisible(h)) continue;
+                if (!IsWindowVisible(h) || IsIconic(h)) return true;
+                GetWindowThreadProcessId(h, out uint pid);
+                if (!pids.Contains(pid) || GetClassName(h) != "Chrome_WidgetWin_1") return true;
+
                 if (GetWindowRect(h, out var r) && r.Right > r.Left && r.Bottom > r.Top)
                 {
                     long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
-                    if (area > bestArea) { bestArea = area; best = h; processId = (uint)p.Id; }
+                    if (area > bestArea) { bestArea = area; best = h; bestPid = pid; }
                 }
-            }
+                return true;
+            }, IntPtr.Zero);
+            processId = bestPid;
             return best;
         }
         finally
@@ -60,5 +73,12 @@ public static class SpotifyWindowTracker
             return true;
         }
         return false;
+    }
+
+    private static string GetClassName(IntPtr hWnd)
+    {
+        var sb = new StringBuilder(256);
+        _ = GetClassName(hWnd, sb, sb.Capacity);
+        return sb.ToString();
     }
 }

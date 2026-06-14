@@ -11,7 +11,7 @@ namespace SpotifyLinearVolume;
 public sealed class OverlayBarForm : Form
 {
     private const long ResizeDebounceMs = 100; // settle wait after a resize before re-locating (snappier reappear)
-    private const int PopupNarrowWidth = 78; // only fly out the popup when the overlay is this narrow or less
+    private const int PopupCompressionMargin = 2;
 
     private readonly VolumeModel _model;
     private readonly VolumeBar _bar = new();
@@ -62,7 +62,7 @@ public sealed class OverlayBarForm : Form
 
         _bar.Dock = DockStyle.Fill;
         _bar.BackColor = Color.Black; // the bar fills the form, so this is what shows around the track
-        _bar.EdgePad = 8; // track spans Spotify's rail; the box's outer 8px hold the knob + hide Spotify's knob edge
+        _bar.EdgePad = SpotifyVolumeLocator.OverlayEdgePad; // track spans Spotify's rail; the outer pad hides the knob edge
         _bar.PositionPicked += pos => _model.SetPosition(pos);
         _bar.Set(_model.Position); // initialize from the current model (not 0)
         Controls.Add(_bar);
@@ -151,7 +151,7 @@ public sealed class OverlayBarForm : Form
         // Only fly out when the rail is too small to drag comfortably. On a normal-width rail,
         // hovering does nothing. Once open, staying on the popup keeps it open regardless of width.
         var hot = Bounds; hot.Inflate(4, 4);
-        bool overOverlay = Visible && Width <= PopupNarrowWidth && hot.Contains(Cursor.Position);
+        bool overOverlay = Visible && IsCompressedForPopup() && hot.Contains(Cursor.Position);
         if (overOverlay)
         {
             _hoverLeftTick = 0;
@@ -180,6 +180,12 @@ public sealed class OverlayBarForm : Form
     {
         if (_popup is { IsDisposed: false, Visible: true }) _popup.Hide();
         _hoverLeftTick = 0;
+    }
+
+    private bool IsCompressedForPopup()
+    {
+        int railWidth = Math.Max(0, Width - SpotifyVolumeLocator.OverlayEdgePad * 2);
+        return railWidth < SpotifyVolumeLocator.NormalRailWidth - PopupCompressionMargin;
     }
 
     /// <summary>
@@ -407,10 +413,10 @@ public sealed class OverlayBarForm : Form
 
     private void OnWinEvent(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
     {
-        if (!_active || IsDisposed || idObject != 0 || idChild != 0 || hwnd != _spotifyHwnd) return;
+        if (!_active || IsDisposed || hwnd != _spotifyHwnd) return;
         if (SpotifyWindowTracker.TryGetBounds(_spotifyHwnd, _spotifyPid, out var r))
         {
-            if (_spotifySize != r.Size) // window resized → cached slider rect is stale until settle
+            if (idObject == 0 && idChild == 0 && _spotifySize != r.Size) // window resized → cached slider rect is stale until settle
             {
                 NoteSpotifySizeChanged(r.Size);
             }
@@ -455,6 +461,7 @@ public sealed class OverlayBarForm : Form
             _presenceTimer.Dispose();
             _resizeSettleTimer.Dispose();
             _hoverTimer.Dispose();
+            _model.Changed -= OnModelChanged;
             _popup?.Dispose();
             UninstallHook();
             _menuOwner.Dispose();

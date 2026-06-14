@@ -6,15 +6,13 @@ namespace SpotifyLinearVolume;
 /// <summary>
 /// Locates Spotify's native volume slider for the overlay, using only UI Automation.
 ///
-/// UIA reports button/slider <b>X</b> reliably but the slider's box is a loose ~129px hit-area that
-/// covers the speaker / mute icon on its left and overlaps the mini-player button on its right, and
-/// Spotify <i>compresses</i> the drawn rail as the window narrows — so fixed pixel offsets don't hold.
-/// Instead we bound the rail by its neighbours: <b>left edge = the right edge of the icon that sits in
-/// the slider's left hit-area</b> (the speaker/mute button), <b>right edge = the left edge of the
-/// nearest mini-player / fullscreen button</b>. Both are reliable UIA X coordinates that reposition
-/// with the window, so the overlay tracks the rail at any width. The overlay (opaque) covers exactly
-/// that span, so Spotify's round knob is always hidden inside it (no doubled knob) yet the box never
-/// reaches the speaker icon or the next button.
+/// UIA reports the slider's <b>X</b> reliably, but its box is a loose ~129px hit-area that now also spans
+/// the speaker/mute icon, so its left edge is NOT the drawn rail — pixel calibration across window sizes
+/// shows the rail starts a stable +65px inside the box (left edge constant relative to slider.X). The
+/// right edge sits a stable 8px before the mini-player button, which slides left as Spotify compresses
+/// the playbar at narrow widths — so the rail keeps its left and shrinks from the right. The returned
+/// rectangle is one overlay knob-radius wider than the measured rail on each side;
+/// <see cref="VolumeBar.EdgePad"/> insets the drawn track back onto Spotify's rail.
 ///
 /// UIA's <b>Y</b> is unreliable in the playbar, so the vertical centre is a tuned offset from the
 /// window's bottom edge.
@@ -22,18 +20,13 @@ namespace SpotifyLinearVolume;
 public static class SpotifyVolumeLocator
 {
     private const int SliderHeight = 20;          // a bit taller than the rail so it fully hides it vertically
-    // The rail is inset from its neighbouring buttons by a fixed gap (Spotify CSS — constant px at any
-    // resolution). These two tune the overlay's left/right edges relative to those button edges.
-    // Calibrated by comparing our green fill against Spotify's own green fill at the same window
-    // (the UIA button boxes carry hidden padding, so their edges aren't the rail ends). The box reaches
-    // one knob-radius past the rail so the white knob never clips; the track inside it is the rail's length.
-    private const int RailStartInset = -11;       // overlay left edge = speaker.right + this  (rail start - EdgePad)
-    private const int RailEndInset = 1;           // overlay right edge = miniplayer.left - this (rail end + EdgePad)
+    public const int OverlayEdgePad = 8;
+    public const int NormalRailWidth = 93;        // measured drawn-rail width at full window width
+    private const int RailStartFromSlider = 65;   // measured resting rail left = slider.X + this
+    private const int RailEndAfterRightButton = -8; // measured resting rail right = mini-player.left + this
+    private const int DefaultRailEndFromSlider = 157; // fallback rail right when the mini-player button isn't found
     private const int WindowEdgeGap = 8;          // never poke past the window's right edge
     private const int PlaybarCenterOffset = 43;   // rail centre this far above the window's bottom edge
-    private const int LeftIconReach = 84;         // a left-hit-area icon's right edge no further than this past slider.X
-    private const int DefaultLeftInset = 62;      // fallback rail start if the speaker icon isn't found
-    private const int DefaultRightInset = 150;    // fallback rail end if no right button is found
 
     // Accessible-name fragments for the controls immediately right of the volume rail
     // (mini-player / fullscreen) in the locales we support.
@@ -71,30 +64,30 @@ public static class SpotifyVolumeLocator
             var r = volume.Current.BoundingRectangle;
             int x = (int)r.X;
 
-            // Bound the rail by its neighbours: the speaker icon on the left, the mini-player button on the right.
-            int leftIconRight = int.MinValue;   // rightmost icon ending inside the slider's left hit-area = rail start
+            // The rail ends a fixed gap before the mini-player / fullscreen button. Match that button by
+            // NAME only: a position-based "leftmost small button right of the rail" heuristic grabs phantom
+            // per-track save ("추가하기") buttons that UIA reports inside the rail zone, throwing the right edge off.
             int nearestButtonX = int.MaxValue;  // leftmost mini-player / fullscreen button = rail end
             foreach (AutomationElement e in elements)
             {
                 if (e.Current.ControlType != ControlType.Button) continue;
                 var bb = e.Current.BoundingRectangle;
                 if (bb.IsEmpty) continue;
-                int bx = (int)bb.X, br = (int)(bb.X + bb.Width);
-
-                if (br > x && br - x <= LeftIconReach && br > leftIconRight)
-                    leftIconRight = br;
+                int bx = (int)bb.X;
+                if (bx <= x + RailStartFromSlider) continue; // must sit right of the rail's left end
 
                 string name = e.Current.Name ?? "";
                 bool nameMatch = false;
                 foreach (var key in RightButtonNames)
                     if (name.Length > 0 && name.Contains(key, StringComparison.OrdinalIgnoreCase)) { nameMatch = true; break; }
-                bool posMatch = bx - x > LeftIconReach + 4 && bb.Width < 44; // an icon sitting right of the rail
-                if ((nameMatch || posMatch) && bx < nearestButtonX)
+                if (nameMatch && bx < nearestButtonX)
                     nearestButtonX = bx;
             }
 
-            int railLeft = (leftIconRight > int.MinValue ? leftIconRight : x + DefaultLeftInset) + RailStartInset;
-            int railRight = (nearestButtonX != int.MaxValue ? nearestButtonX : x + DefaultRightInset) - RailEndInset;
+            int railLeft = x + RailStartFromSlider - OverlayEdgePad;
+            int railRight = (nearestButtonX != int.MaxValue
+                ? nearestButtonX + RailEndAfterRightButton
+                : x + DefaultRailEndFromSlider) + OverlayEdgePad;
 
             if (!GetWindowRect(spotifyHwnd, out var win))
                 return new Rectangle(railLeft, (int)r.Y, Math.Max(24, railRight - railLeft), (int)r.Height);

@@ -19,6 +19,7 @@ public sealed class SpotifyVolumeController : IDisposable
 {
     private MMDeviceEnumerator? _enumerator;
     private RangeValuePattern? _cached;   // Spotify's volume slider, located lazily
+    private AutomationElement? _blurTarget; // a focusable container to blur the slider onto after SetValue
     private bool _sessionReset;
 
     public bool IsSpotifyRunning
@@ -52,14 +53,23 @@ public sealed class SpotifyVolumeController : IDisposable
     {
         var rvp = Pattern();
         if (rvp == null) return false;
-        try { rvp.SetValue(gain); return true; }
+        try { rvp.SetValue(gain); Blur(); return true; }
         catch
         {
             _cached = null;             // element went stale (Spotify re-rendered) → relocate once
             rvp = Pattern();
             if (rvp == null) return false;
-            try { rvp.SetValue(gain); return true; } catch { _cached = null; return false; }
+            try { rvp.SetValue(gain); Blur(); return true; } catch { _cached = null; return false; }
         }
+    }
+
+    // SetValue gives the slider keyboard focus, so Spotify (Blink) paints a :focus-visible ring AND
+    // renders the rail WIDER — which shifts the neighbouring buttons and leaves our overlay (sized for
+    // the resting rail) misaligned. Immediately move focus to a benign container (the document) to drop
+    // that state; the slider keeps the value we just set.
+    private void Blur()
+    {
+        try { _blurTarget?.SetFocus(); } catch { _blurTarget = null; }
     }
 
     private RangeValuePattern? Pattern()
@@ -71,6 +81,12 @@ public sealed class SpotifyVolumeController : IDisposable
             if (hwnd == IntPtr.Zero) return null;
             var root = AutomationElement.FromHandle(hwnd);
             if (root == null) return null;
+
+            // Cache a benign focusable container to blur the slider onto after each SetValue (kills the ring).
+            if (_blurTarget == null)
+                try { _blurTarget = root.FindFirst(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document)); }
+                catch { _blurTarget = null; }
 
             var sliders = root.FindAll(TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Slider));
@@ -117,14 +133,7 @@ public sealed class SpotifyVolumeController : IDisposable
 
     private static IntPtr FindSpotifyMainWindow()
     {
-        var procs = Process.GetProcessesByName("Spotify");
-        try
-        {
-            foreach (var p in procs)
-                if (p.MainWindowHandle != IntPtr.Zero) return p.MainWindowHandle;
-            return IntPtr.Zero;
-        }
-        finally { foreach (var p in procs) p.Dispose(); }
+        return SpotifyWindowTracker.FindWindow(out _);
     }
 
     private static bool IsSpotify(AudioSessionControl session)
