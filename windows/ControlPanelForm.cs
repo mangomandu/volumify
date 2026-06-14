@@ -116,9 +116,10 @@ public sealed class ControlPanelForm : Form
         using (var dbr = new SolidBrush(dot))
             g.FillEllipse(dbr, Width - 84, 16, 9, 9);
 
-        float gain = _model.Gain;
-        double db = gain > 0 ? 20 * Math.Log10(gain) : double.NegativeInfinity;
-        string pct = $"{gain * 100:0}%";
+        float felt = VolumeCurve.FeltLoudness(_model.Position, _model.P); // perceived loudness — what you actually hear
+        float amp = VolumeCurve.Amplitude(_model.Position, _model.P);     // actual output amplitude → real dB
+        double db = amp > 0 ? 20 * Math.Log10(amp) : double.NegativeInfinity;
+        string pct = $"{felt * 100:0}%";
         string dbText = double.IsNegativeInfinity(db) ? "−∞ dB" : $"{db:0.0} dB";
         using (var big = new Font("Segoe UI", 20f, FontStyle.Bold))
         {

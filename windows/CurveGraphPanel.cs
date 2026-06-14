@@ -3,8 +3,8 @@ using System.Drawing.Drawing2D;
 namespace SpotifyLinearVolume;
 
 /// <summary>
-/// Live volume curve (gain = position ^ p): green line with a gradient fill, a linear
-/// reference, and a glowing marker at the current position. Drag horizontally to set position.
+/// Live volume curve: a green line for felt loudness vs slider position, a dashed diagonal
+/// "even" reference, and a simple marker at the current position. Drag horizontally to set it.
 /// </summary>
 public sealed class CurveGraphPanel : Panel
 {
@@ -46,57 +46,48 @@ public sealed class CurveGraphPanel : Panel
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        var area = new Rectangle(Pad, Pad, Width - 2 * Pad, Height - 2 * Pad);
+
+        // Reserve a thin strip top + bottom for the axis labels.
+        var area = new Rectangle(Pad, Pad + 13, Width - 2 * Pad, Height - 2 * Pad - 26);
         if (area.Width < 8 || area.Height < 8) return;
 
-        using (var grid = new Pen(Color.FromArgb(40, 40, 40)))
-            for (int i = 0; i <= 4; i++)
-            {
-                int x = area.Left + area.Width * i / 4;
-                int y = area.Top + area.Height * i / 4;
-                g.DrawLine(grid, x, area.Top, x, area.Bottom);
-                g.DrawLine(grid, area.Left, y, area.Right, y);
-            }
+        // Plot frame.
+        using (var frame = new Pen(Color.FromArgb(48, 48, 48)))
+            g.DrawRectangle(frame, area.Left, area.Top, area.Width, area.Height);
 
+        // "Even" reference: a straight diagonal — felt loudness rising evenly with the slider.
         using (var lin = new Pen(Color.FromArgb(70, 70, 70)) { DashStyle = DashStyle.Dash })
             g.DrawLine(lin, area.Left, area.Bottom, area.Right, area.Top);
 
+        // The curve: felt loudness vs slider position (≈ position^(2.4·p) — "고름" reads as a straight line).
         const int n = 128;
         var pts = new PointF[n + 1];
         for (int i = 0; i <= n; i++)
         {
             float x = i / (float)n;
-            float y = (float)Math.Pow(x, _p);
+            float y = VolumeCurve.FeltLoudness(x, _p);
             pts[i] = new PointF(area.Left + x * area.Width, area.Bottom - y * area.Height);
         }
-
-        using (var fillPath = new GraphicsPath())
-        {
-            fillPath.AddLines(pts);
-            fillPath.AddLine(area.Right, area.Bottom, area.Left, area.Bottom);
-            fillPath.CloseFigure();
-            using var grad = new LinearGradientBrush(
-                new Point(0, area.Top), new Point(0, area.Bottom + 1),
-                Color.FromArgb(95, Accent), Color.FromArgb(8, Accent));
-            g.FillPath(grad, fillPath);
-        }
-
-        using (var pen = new Pen(Accent, 2.6f) { LineJoin = LineJoin.Round })
+        using (var pen = new Pen(Accent, 2.4f) { LineJoin = LineJoin.Round })
             g.DrawLines(pen, pts);
 
-        float gain = (float)Math.Pow(_position, _p);
+        // Current-position marker: a vertical guide + white dot with a green ring.
+        float felt = VolumeCurve.FeltLoudness(_position, _p);
         float mx = area.Left + _position * area.Width;
-        float my = area.Bottom - gain * area.Height;
-        using (var guide = new Pen(Color.FromArgb(85, 255, 255, 255)) { DashStyle = DashStyle.Dot })
-        {
+        float my = area.Bottom - felt * area.Height;
+        using (var guide = new Pen(Color.FromArgb(70, 255, 255, 255)) { DashStyle = DashStyle.Dot })
             g.DrawLine(guide, mx, area.Bottom, mx, my);
-            g.DrawLine(guide, area.Left, my, mx, my);
-        }
-        using (var glow = new SolidBrush(Color.FromArgb(55, Accent)))
-            g.FillEllipse(glow, mx - 9, my - 9, 18, 18);
         using (var dot = new SolidBrush(Color.White))
             g.FillEllipse(dot, mx - 4.5f, my - 4.5f, 9, 9);
         using (var ring = new Pen(Accent, 2f))
             g.DrawEllipse(ring, mx - 4.5f, my - 4.5f, 9, 9);
+
+        // Axis labels: what each direction means, kept small and out of the way.
+        using var labelFont = new Font(Font.FontFamily, 7.5f);
+        using var labelBrush = new SolidBrush(Color.FromArgb(150, 150, 150));
+        g.DrawString("↑ " + Loc.T("체감 음량", "loudness"), labelFont, labelBrush, area.Left - 2, Pad - 3);
+        string xLabel = Loc.T("슬라이더 위치", "slider") + " →";
+        float xWidth = g.MeasureString(xLabel, labelFont).Width;
+        g.DrawString(xLabel, labelFont, labelBrush, area.Right - xWidth + 2, area.Bottom + 5);
     }
 }
