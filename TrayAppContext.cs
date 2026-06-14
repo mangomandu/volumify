@@ -31,6 +31,7 @@ public sealed class TrayAppContext : ApplicationContext
     private ToolStripMenuItem _overlayItem = null!;
     private readonly List<ToolStripMenuItem> _presetItems = new();
     private readonly List<ToolStripMenuItem> _popupItems = new(); // "좁을 때 팝업" toggle mirrored in both menus
+    private readonly System.Windows.Forms.Timer _syncTimer = new() { Interval = 200 }; // poll Spotify for external volume changes
 
     public TrayAppContext()
     {
@@ -81,6 +82,10 @@ public sealed class TrayAppContext : ApplicationContext
         _model.Changed += OnModelChanged;
         RefreshTrayUi();
         _overlay.SetActive(_settings.OverlayOnVolume);
+
+        // Pull external Spotify volume changes (its own slider, hotkeys, the phone) into every surface.
+        _syncTimer.Tick += (_, _) => _model.PumpExternal();
+        _syncTimer.Start();
     }
 
     private void TogglePanel()
@@ -287,6 +292,7 @@ public sealed class TrayAppContext : ApplicationContext
     {
         if (disposing)
         {
+            _syncTimer.Dispose();
             _tray.Dispose();
             _appIcon?.Dispose();
             _model.Dispose();

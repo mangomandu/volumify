@@ -23,6 +23,10 @@ public sealed class VolumeModel : IDisposable
     private bool _pushPending;
     private volatile bool _disposed;
     private volatile bool _sessionFound;
+    private volatile float _externalGain = -1f; // latest Spotify slider value seen by the background poll (-1 = none)
+
+    private const int PollIntervalMs = 200;
+    private const float SyncEpsilon = 0.005f;
 
     public float Position { get; private set; } = 0.5f;
     public float P { get; private set; } = 1f;
@@ -81,18 +85,41 @@ public sealed class VolumeModel : IDisposable
     {
         while (true)
         {
-            _pushSignal.WaitOne();
+            _pushSignal.WaitOne(PollIntervalMs); // wake on a queued write, else every PollIntervalMs to poll
             if (_disposed) return;
 
-            float g;
+            float? toPush = null;
             lock (_pushGate)
             {
-                if (!_pushPending) continue;
-                g = _pushTarget;
-                _pushPending = false; // collapse a burst of drag updates down to the latest value
+                if (_pushPending) { toPush = _pushTarget; _pushPending = false; } // collapse a burst to the latest
             }
-            _sessionFound = _controller.SetGain(g);
+
+            if (toPush.HasValue)
+            {
+                _sessionFound = _controller.SetGain(toPush.Value);
+                _externalGain = toPush.Value; // we own this value now; a stale poll mustn't snap us back to it
+                continue;
+            }
+
+            // No queued write → read Spotify's slider so an external change (its own bar, a hotkey, the
+            // phone) can be folded into our model by PumpExternal on the UI thread. All UI Automation
+            // access stays on this one thread, so there's no cross-thread contention on the controller.
+            var g = _controller.GetGain();
+            if (g.HasValue) { _sessionFound = true; _externalGain = g.Value; }
         }
+    }
+
+    /// <summary>
+    /// Fold the latest externally-observed Spotify volume into the model. Call on the UI thread (a tray
+    /// timer) so moving Spotify's own slider / hotkeys / the phone updates every Volumify surface too.
+    /// </summary>
+    public void PumpExternal()
+    {
+        lock (_pushGate) { if (_pushPending) return; } // a write we just queued wins over a stale reading
+        float g = _externalGain;
+        if (g < 0f || Math.Abs(g - Gain) <= SyncEpsilon) return; // nothing polled yet, or already matches us
+        Position = VolumeCurve.PositionFromGain(g, P);
+        Changed?.Invoke(); // refresh UI only — Spotify is already at this value, so don't write it back
     }
 
     public void Dispose()
