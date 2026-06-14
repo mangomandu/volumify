@@ -19,7 +19,6 @@ public sealed class SpotifyVolumeController : IDisposable
 {
     private MMDeviceEnumerator? _enumerator;
     private RangeValuePattern? _cached;   // Spotify's volume slider, located lazily
-    private AutomationElement? _blurTarget; // a focusable container to blur the slider onto after SetValue
     private bool _sessionReset;
 
     public bool IsSpotifyRunning
@@ -53,22 +52,14 @@ public sealed class SpotifyVolumeController : IDisposable
     {
         var rvp = Pattern();
         if (rvp == null) return false;
-        try { rvp.SetValue(gain); Blur(); return true; }
+        try { rvp.SetValue(gain); return true; }
         catch
         {
             _cached = null;             // element went stale (Spotify re-rendered) → relocate once
             rvp = Pattern();
             if (rvp == null) return false;
-            try { rvp.SetValue(gain); Blur(); return true; } catch { _cached = null; return false; }
+            try { rvp.SetValue(gain); return true; } catch { _cached = null; return false; }
         }
-    }
-
-    // SetValue gives the slider keyboard focus, so Spotify (Blink) paints a :focus-visible ring and the
-    // slider renders larger — which would peek around our overlay. Immediately move focus to a benign
-    // container (the document) to drop that state. The slider keeps the value we just set.
-    private void Blur()
-    {
-        try { _blurTarget?.SetFocus(); } catch { _blurTarget = null; }
     }
 
     private RangeValuePattern? Pattern()
@@ -80,12 +71,6 @@ public sealed class SpotifyVolumeController : IDisposable
             if (hwnd == IntPtr.Zero) return null;
             var root = AutomationElement.FromHandle(hwnd);
             if (root == null) return null;
-
-            // Cache a benign focusable container to blur the slider onto after each SetValue (kills the ring).
-            if (_blurTarget == null)
-                try { _blurTarget = root.FindFirst(TreeScope.Descendants,
-                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document)); }
-                catch { _blurTarget = null; }
 
             var sliders = root.FindAll(TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Slider));
