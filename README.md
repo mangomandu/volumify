@@ -44,13 +44,13 @@ You see one slider; the app remaps it. Move it to position `x` (0–1) and it se
 gain = x ^ p
 ```
 
-Spotify's built‑in curve is steep at the top (the bottom half barely moves), so a `p` **below 1** lifts the low end and the whole slider becomes usable. `p = 1` is the neutral baseline; higher `p` leans back toward Spotify's own top‑heavy feel. Pick by feel from the tray or the panel's **live curve graph**:
+Spotify's built‑in curve is steep at the top (the bottom half barely moves), so a `p` **below 1** lifts the low end and the whole slider becomes usable. `p = 1` is linear (no extra correction); higher `p` leans back toward Spotify's own top‑heavy feel. Pick by feel from the tray or the panel's **live curve graph**:
 
 | preset | `p` | feel |
 |--------|----:|------|
 | **강하게** | 0.3 | most low‑end boost |
 | **살짝 강하게** | 0.5 | gentler boost |
-| **기준** | 1.0 | neutral baseline |
+| **리니어** | 1.0 | linear — no extra correction |
 | **약하게** | 1.5 | closer to Spotify's stock curve |
 | **스포티파이 디폴트** | 2.0 | Spotify's own top‑heavy default |
 
@@ -58,7 +58,7 @@ Spotify's built‑in curve is steep at the top (the bottom half barely moves), s
 
 ## 🚀 Features
 
-- 🎚️ **Tunable perceptual curve** — presets from *강하게 (0.3)* through *기준 (1.0)* to *스포티파이 디폴트 (2.0)*, with a **live curve graph**.
+- 🎚️ **Tunable perceptual curve** — presets from *강하게 (0.3)* through *리니어 (1.0)* to *스포티파이 디폴트 (2.0)*, with a **live curve graph**.
 - 📱 **Syncs to every device** — it moves Spotify's own volume, so your phone and Connect speakers follow along (no separate OS‑only gain).
 - 👁️ **Level shown everywhere** — the overlay, tray tooltip and control panel all reflect the current volume.
 - 🧲 **Two ways to stick to Spotify** (pick one):

@@ -8,12 +8,12 @@ public sealed class TrayAppContext : ApplicationContext
 {
     // We drive Spotify's OWN volume slider to position^p, and Spotify's own top-heavy curve is applied
     // on top. p<1 boosts the low end (강하게); p=1 is the neutral baseline; p→2.0 leans into Spotify's
-    // stock top-heavy feel ("스포티파이 디폴트"). Starting points — fine-tune by feel.
+    // stock top-heavy feel ("스포티파이 디폴트"). p=1 is "리니어" (no extra correction). Tune by feel.
     private readonly (string Label, float P)[] _presets =
     {
         ("강하게 (0.3)", 0.3f),
         ("살짝 강하게 (0.5)", 0.5f),
-        ("기준 (1.0)", 1.0f),
+        ("리니어 (1.0)", 1.0f),
         ("약하게 (1.5)", 1.5f),
         ("스포티파이 디폴트 (2.0)", 2.0f),
     };
