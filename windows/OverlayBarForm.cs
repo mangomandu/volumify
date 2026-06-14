@@ -64,6 +64,7 @@ public sealed class OverlayBarForm : Form
         _bar.BackColor = Color.Black; // the bar fills the form, so this is what shows around the track
         _bar.EdgePad = SpotifyVolumeLocator.OverlayEdgePad; // track spans Spotify's rail; the outer pad hides the knob edge
         _bar.PositionPicked += pos => _model.SetPosition(pos);
+        _bar.MouseUp += OnBarMouseUp; // subscribe once — SetContextMenu just swaps the menu it shows
         _bar.Set(_model.Position); // initialize from the current model (not 0)
         Controls.Add(_bar);
 
@@ -194,16 +195,19 @@ public sealed class OverlayBarForm : Form
     /// </summary>
     public void SetContextMenu(ContextMenuStrip menu)
     {
+        var old = _menu;
         _menu = menu;
-        _bar.MouseUp += (_, e) =>
-        {
-            if (e.Button != MouseButtons.Right || _menu == null) return;
-            _menuOwner.Location = Cursor.Position;
-            if (!_menuOwner.Visible) _menuOwner.Show();
-            _menuOwner.Activate();
-            _menu.Closed += HideOwnerOnce;
-            _menu.Show(_menuOwner, _menuOwner.PointToClient(Cursor.Position));
-        };
+        if (old != null && old != menu) old.Dispose(); // language rebuild replaces it — don't leak the old menu
+    }
+
+    private void OnBarMouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right || _menu == null) return;
+        _menuOwner.Location = Cursor.Position;
+        if (!_menuOwner.Visible) _menuOwner.Show();
+        _menuOwner.Activate();
+        _menu.Closed += HideOwnerOnce;
+        _menu.Show(_menuOwner, _menuOwner.PointToClient(Cursor.Position));
     }
 
     private void HideOwnerOnce(object? sender, ToolStripDropDownClosedEventArgs e)

@@ -233,6 +233,18 @@ public sealed class ControlPanelForm : Form
         Activate();
     }
 
+    /// <summary>Hide at the user's request and keep it hidden — dock auto-reshow won't override this.</summary>
+    public void HideByUser() { _userHidden = true; Hide(); }
+
+    /// <summary>Show in response to a tray/menu click: snap straight to the dock spot when docked
+    /// (no tray flash), otherwise near the tray.</summary>
+    public void RequestShow()
+    {
+        _userHidden = false;
+        if (_dockMode) PresenceTick(); // already tracking Spotify → jump to the dock position
+        else ShowNearTray();
+    }
+
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; _userHidden = true; Hide(); }

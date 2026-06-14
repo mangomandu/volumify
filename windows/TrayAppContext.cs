@@ -84,8 +84,8 @@ public sealed class TrayAppContext : ApplicationContext
 
     private void TogglePanel()
     {
-        if (_panel.Visible) _panel.Hide();
-        else _panel.ShowNearTray();
+        if (_panel.Visible) _panel.HideByUser();
+        else _panel.RequestShow();
     }
 
     private void ToggleDock()
@@ -163,7 +163,7 @@ public sealed class TrayAppContext : ApplicationContext
         _popupItems.Add(popupItem);
         menu.Items.Add(popupItem);
 
-        menu.Items.Add(new ToolStripMenuItem(Loc.T("설정 패널 열기", "Open settings panel"), null, (_, _) => _panel.ShowNearTray()));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("설정 패널 열기", "Open settings panel"), null, (_, _) => _panel.RequestShow()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem(Loc.T("오버레이 끄기", "Turn off overlay"), null, (_, _) => { if (_settings.OverlayOnVolume) ToggleOverlay(); }));
         return menu;
@@ -178,7 +178,7 @@ public sealed class TrayAppContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
 
         // --- the control panel (slider window) + where it sits ---
-        menu.Items.Add(new ToolStripMenuItem(Loc.T("볼륨 슬라이더 열기", "Open volume slider"), null, (_, _) => _panel.ShowNearTray()));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("볼륨 슬라이더 열기", "Open volume slider"), null, (_, _) => _panel.RequestShow()));
 
         _dockItem = new ToolStripMenuItem(Loc.T("Spotify 창에 붙이기", "Dock to Spotify window"), null, (_, _) => ToggleDock())
         {
