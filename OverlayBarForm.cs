@@ -58,10 +58,11 @@ public sealed class OverlayBarForm : Form
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
-        BackColor = Color.FromArgb(20, 20, 20);
+        BackColor = Color.Black; // sit invisibly on Spotify's (near-black) playbar — no grey box
         ClientSize = new Size(120, 22);
 
         _bar.Dock = DockStyle.Fill;
+        _bar.BackColor = Color.Black; // the bar fills the form, so this is what shows around the track
         _bar.EdgePad = OverlayTrackPad; // track ≈ full rail; round caps stay inside, knob self-clamps
         _bar.PositionPicked += pos => _model.SetPosition(pos);
         _bar.Set(_model.Position); // initialize from the current model (not 0)
