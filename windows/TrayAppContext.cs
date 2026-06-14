@@ -6,16 +6,17 @@ namespace SpotifyLinearVolume;
 /// </summary>
 public sealed class TrayAppContext : ApplicationContext
 {
-    // We drive Spotify's OWN volume slider to position^p, and Spotify's own top-heavy curve is applied
-    // on top. Lower p flattens the response (volume rises more evenly across the slider → "완만/Gentle");
-    // p=1 is a linear passthrough; p→2.0 leans into Spotify's stock top-heavy feel ("가파름 → 스포티파이 기본").
+    // We set Spotify's OWN slider value to position^p; Spotify then applies its own steep, top-heavy
+    // curve on top (≈ value⁴, confirmed by community reports + measurement). So the perceived loudness
+    // ≈ position^(2.4·p): p<1 flattens it toward an even, usable slider (p≈0.4 ≈ loudness tracks the
+    // slider position); p=1 leaves Spotify's raw top-heavy feel; p>1 only makes it worse, so we don't
+    // offer it. (Earlier "리니어=1.0 / 스포티파이 기본=2.0" labels were backwards — 1.0 IS Spotify's raw curve.)
     private readonly Preset[] _presets =
     {
-        new("완만", "Gentle", 0.3f),
-        new("살짝 완만", "Soft", 0.5f),
-        new("리니어", "Linear", 1.0f),
-        new("가파름", "Steep", 1.5f),
-        new("스포티파이 기본", "Spotify default", 2.0f),
+        new("평탄", "Flat", 0.3f),
+        new("고름", "Even", 0.4f),
+        new("살짝 쏠림", "Slight ramp", 0.6f),
+        new("스포티파이 그대로", "Spotify native", 1.0f),
     };
 
     private readonly AppSettings _settings = SettingsStore.Load();

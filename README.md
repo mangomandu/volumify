@@ -42,23 +42,22 @@ You see one slider; the app remaps it. Move it to position `x` (0–1) and it se
 gain = x ^ p
 ```
 
-Spotify's built‑in curve is steep at the top (the bottom half barely moves), so a `p` **below 1** lifts the low end and the whole slider becomes usable. `p = 1` is linear (no extra correction); higher `p` leans back toward Spotify's own top‑heavy feel. Pick by feel from the tray or the panel's **live curve graph**:
+Spotify's built‑in curve is **top‑heavy** (≈ `x⁴` — the bottom half is barely audible and the top ~20% does most of the work), so a `p` **below 1** flattens it: the low slider positions get lifted until the whole slider is usable. **`p ≈ 0.4` makes the perceived loudness track the slider evenly**; `p = 1` leaves Spotify's raw top‑heavy feel; higher `p` only makes it worse. Pick by feel from the tray or the panel's **live curve graph**:
 
-<div align="center"><img src="assets/curve.png" width="640" alt="A power curve lifting Spotify's top-heavy response so the whole slider becomes usable"></div>
+<div align="center"><img src="assets/curve.png" width="640" alt="A power curve flattening Spotify's top-heavy response so the whole slider becomes usable"></div>
 
 | preset | `p` | feel |
 |--------|----:|------|
-| **완만** · *Gentle* | 0.3 | flattest — most low‑end boost |
-| **살짝 완만** · *Soft* | 0.5 | gentle boost |
-| **리니어** · *Linear* | 1.0 | linear — no extra correction |
-| **가파름** · *Steep* | 1.5 | closer to Spotify's stock curve |
-| **스포티파이 기본** · *Spotify default* | 2.0 | Spotify's own top‑heavy default |
+| **평탄** · *Flat* | 0.3 | flattest — loud early |
+| **고름** · *Even* | 0.4 | perceived loudness ≈ slider position (**recommended**) |
+| **살짝 쏠림** · *Slight ramp* | 0.6 | a little top‑heavy |
+| **스포티파이 그대로** · *Spotify native* | 1.0 | Spotify's raw top‑heavy feel |
 
 > Starting points — tune to taste. Because the value it sets is Spotify's *real* volume, nothing inside Spotify is touched and the level follows you to every device.
 
 ## 🚀 Features
 
-- 🎚️ **Tunable perceptual curve** — five presets from *완만 / Gentle (0.3)* to *스포티파이 기본 / Spotify default (2.0)*, with a **live curve graph**.
+- 🎚️ **Tunable perceptual curve** — presets from *평탄 / Flat (0.3)* through *고름 / Even (0.4, recommended)* to *스포티파이 그대로 / Spotify native (1.0)*, with a **live curve graph**.
 - 🔁 **Two‑way sync** — move Spotify's own slider (or a media key, or your phone) and Volumify follows; move Volumify and Spotify follows. Everything stays in step.
 - 📱 **Syncs to every device** — it moves Spotify's own volume, so your phone and Connect speakers come along (no separate OS‑only gain).
 - 🌐 **English & 한국어** — auto‑detects your Windows language on first run; switch anytime from the tray.
