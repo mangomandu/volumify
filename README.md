@@ -2,19 +2,19 @@
 
 <img src="assets/icon.png" width="92" alt="app icon">
 
-# Spotify Volume Curve
+# Volumify
 
 ### Spotify's volume slider, fixed.
 
 **A perceptual, _linear‑feeling_ volume curve for Spotify on Windows — without ever touching the app.**
 
-[![Download latest release](https://img.shields.io/github/v/release/mangomandu/spotify-volume-curve?label=Download%20.exe&logo=github&color=1ed760)](https://github.com/mangomandu/spotify-volume-curve/releases/latest)
+[![Download latest release](https://img.shields.io/github/v/release/mangomandu/volumify?label=Download%20.exe&logo=github&color=1ed760)](https://github.com/mangomandu/volumify/releases/latest)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](#)
 [![Lossless & auto‑update safe](https://img.shields.io/badge/Spotify-lossless%20%26%20update%20safe-1ed760?logo=spotify&logoColor=white)](#-why-not-just-spicetify)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1ed760)](LICENSE)
 
-### [⬇️ Download the latest `.exe`](https://github.com/mangomandu/spotify-volume-curve/releases/latest) &nbsp;·&nbsp; no install, just run
+### [⬇️ Download the latest `.exe`](https://github.com/mangomandu/volumify/releases/latest) &nbsp;·&nbsp; no install, just run
 
 <img src="assets/curve.png" width="720" alt="Power curve vs. Spotify's top-heavy default — make the whole slider usable">
 
@@ -69,7 +69,7 @@ Spotify's built‑in curve is steep at the top (the bottom half barely moves), s
 
 ## 🤔 Why not just Spicetify?
 
-|  | Spicetify volume tweaks | **Spotify Volume Curve** |
+|  | Spicetify volume tweaks | **Volumify** |
 |---|:---:|:---:|
 | Survives Spotify auto‑updates | ❌ silently reverts each update | ✅ never touches Spotify |
 | Works with **Lossless** | ⚠️ risky / can block it | ✅ completely untouched |
@@ -80,7 +80,7 @@ Because nothing inside Spotify is edited — the app only nudges Spotify's own v
 
 ## 🛠️ Build & run
 
-> **Just want to use it?** [Download the `.exe`](https://github.com/mangomandu/spotify-volume-curve/releases/latest) — it's self‑contained, no build required. Run it and it lives in your tray, driving Spotify's volume for you.
+> **Just want to use it?** [Download the `.exe`](https://github.com/mangomandu/volumify/releases/latest) — it's self‑contained, no build required. Run it and it lives in your tray, driving Spotify's volume for you.
 
 To build from source you need the [.NET 8 SDK](https://dotnet.microsoft.com/download):
 

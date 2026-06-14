@@ -67,7 +67,7 @@ public sealed class TrayAppContext : ApplicationContext
         _tray = new NotifyIcon
         {
             Icon = _appIcon ?? SystemIcons.Application,
-            Text = "Spotify Linear Volume",
+            Text = "Volumify",
             Visible = true,
             ContextMenuStrip = BuildMenu(),
         };
@@ -232,7 +232,7 @@ public sealed class TrayAppContext : ApplicationContext
     private void RefreshTrayUi()
     {
         _volLabel.Text = $"볼륨: {_model.Position * 100:0}%  (gain {_model.Gain * 100:0}%)";
-        _tray.Text = $"Spotify Linear Volume — {_model.Position * 100:0}%";
+        _tray.Text = $"Volumify — {_model.Position * 100:0}%";
         for (int i = 0; i < _presetItems.Count; i++)
             _presetItems[i].Checked = Math.Abs(_model.P - _presets[i].P) < 0.001f;
     }
