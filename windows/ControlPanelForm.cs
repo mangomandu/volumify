@@ -11,7 +11,6 @@ namespace SpotifyLinearVolume;
 public sealed class ControlPanelForm : Form
 {
     private static readonly Color Bg = Color.FromArgb(20, 20, 20);
-    private static readonly Color Accent = Color.FromArgb(30, 215, 96);
     private const int HeaderH = 42;
 
     private readonly VolumeModel _model;
@@ -104,17 +103,15 @@ public sealed class ControlPanelForm : Form
         var g = e.Graphics;
         g.Clear(Bg);
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // crisp title — no subpixel fringing on the dark header
 
-        using (var path = Rounded(new RectangleF(16, 14, 13, 13), 3))
-        using (var lb = new SolidBrush(Accent))
-            g.FillPath(lb, path);
         using (var titleFont = new Font("Segoe UI Semibold", 10.5f))
         using (var tb = new SolidBrush(Color.White))
-            g.DrawString(Loc.T("Spotify 볼륨", "Spotify Volume"), titleFont, tb, 36, 11);
+            g.DrawString(Loc.T("Spotify 볼륨", "Spotify Volume"), titleFont, tb, 16, 11);
 
-        Color dot = _model.SessionFound ? Accent : Color.FromArgb(225, 185, 80);
-        using (var dbr = new SolidBrush(dot))
-            g.FillEllipse(dbr, Width - 84, 16, 9, 9);
+        if (!_model.SessionFound) // amber warning dot only when Spotify can't be seen — nothing in normal use
+            using (var warn = new SolidBrush(Color.FromArgb(225, 185, 80)))
+                g.FillEllipse(warn, Width - 52, 17, 8, 8);
 
         float felt = VolumeCurve.FeltLoudness(_model.Position, _model.P); // perceived loudness — what you actually hear
         float amp = VolumeCurve.Amplitude(_model.Position, _model.P);     // actual output amplitude → real dB
@@ -289,18 +286,6 @@ public sealed class ControlPanelForm : Form
         }
         if (p.Y < HeaderH) return HTCAPTION; // drag by the header
         return HTCLIENT;
-    }
-
-    private static GraphicsPath Rounded(RectangleF r, float radius)
-    {
-        var p = new GraphicsPath();
-        float d = radius * 2;
-        p.AddArc(r.Left, r.Top, d, d, 180, 90);
-        p.AddArc(r.Right - d, r.Top, d, d, 270, 90);
-        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        p.AddArc(r.Left, r.Bottom - d, d, d, 90, 90);
-        p.CloseFigure();
-        return p;
     }
 
     // ----- native -----
