@@ -7,15 +7,15 @@ namespace SpotifyLinearVolume;
 public sealed class TrayAppContext : ApplicationContext
 {
     // We drive Spotify's OWN volume slider to position^p, and Spotify's own top-heavy curve is applied
-    // on top. p<1 boosts the low end (강하게); p=1 is the neutral baseline; p→2.0 leans into Spotify's
-    // stock top-heavy feel ("스포티파이 디폴트"). p=1 is "리니어" (no extra correction). Tune by feel.
-    private readonly (string Label, float P)[] _presets =
+    // on top. Lower p flattens the response (volume rises more evenly across the slider → "완만/Gentle");
+    // p=1 is a linear passthrough; p→2.0 leans into Spotify's stock top-heavy feel ("가파름 → 스포티파이 기본").
+    private readonly Preset[] _presets =
     {
-        ("강하게 (0.3)", 0.3f),
-        ("살짝 강하게 (0.5)", 0.5f),
-        ("리니어 (1.0)", 1.0f),
-        ("약하게 (1.5)", 1.5f),
-        ("스포티파이 디폴트 (2.0)", 2.0f),
+        new("완만", "Gentle", 0.3f),
+        new("살짝 완만", "Soft", 0.5f),
+        new("리니어", "Linear", 1.0f),
+        new("가파름", "Steep", 1.5f),
+        new("스포티파이 기본", "Spotify default", 2.0f),
     };
 
     private readonly AppSettings _settings = SettingsStore.Load();
@@ -34,6 +34,8 @@ public sealed class TrayAppContext : ApplicationContext
 
     public TrayAppContext()
     {
+        Loc.Lang = Loc.FromSetting(_settings.Language);
+
         // Normalize mutually-exclusive modes so the menu never lies about state.
         if (_settings.OverlayOnVolume && _settings.DockToSpotify)
         {
@@ -108,6 +110,22 @@ public sealed class TrayAppContext : ApplicationContext
         _startupItem.Checked = StartupManager.IsEnabled();
     }
 
+    private void ApplyLanguage(AppLang lang)
+    {
+        if (Loc.Lang == lang) return;
+        Loc.Lang = lang;
+        _settings.Language = Loc.ToSetting(lang);
+        SettingsStore.Save(_settings);
+
+        // Rebuild both right-click menus (plus the panel title + tray tooltip) in the new language.
+        _presetItems.Clear();
+        _popupItems.Clear();
+        _overlay.SetContextMenu(BuildOverlayMenu());
+        _tray.ContextMenuStrip = BuildMenu();
+        _panel.RefreshTexts();
+        RefreshTrayUi();
+    }
+
     private void ResetDock()
     {
         _panel.ResetDockOffset();
@@ -141,24 +159,24 @@ public sealed class TrayAppContext : ApplicationContext
     private ContextMenuStrip BuildOverlayMenu()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add(new ToolStripMenuItem("Spotify 볼륨 오버레이") { Enabled = false });
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("Spotify 볼륨 오버레이", "Spotify volume overlay")) { Enabled = false });
         menu.Items.Add(new ToolStripSeparator());
 
-        var curve = new ToolStripMenuItem("곡선 세기");
-        foreach (var (label, p) in _presets)
-            curve.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => _model.SetP(p)));
+        var curve = new ToolStripMenuItem(Loc.T("곡선 세기", "Volume curve"));
+        foreach (var pr in _presets)
+            curve.DropDownItems.Add(new ToolStripMenuItem(pr.Label, null, (_, _) => _model.SetP(pr.P)));
         menu.Items.Add(curve);
 
-        var popupItem = new ToolStripMenuItem("좁을 때 팝업 슬라이더", null, (_, _) => ToggleOverlayPopup())
+        var popupItem = new ToolStripMenuItem(Loc.T("좁을 때 팝업 슬라이더", "Pop-out slider when narrow"), null, (_, _) => ToggleOverlayPopup())
         {
             Checked = _settings.OverlayPopup,
         };
         _popupItems.Add(popupItem);
         menu.Items.Add(popupItem);
 
-        menu.Items.Add(new ToolStripMenuItem("설정 패널 열기", null, (_, _) => _panel.ShowNearTray()));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("설정 패널 열기", "Open settings panel"), null, (_, _) => _panel.ShowNearTray()));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("오버레이 끄기", null, (_, _) => { if (_settings.OverlayOnVolume) ToggleOverlay(); }));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("오버레이 끄기", "Turn off overlay"), null, (_, _) => { if (_settings.OverlayOnVolume) ToggleOverlay(); }));
         return menu;
     }
 
@@ -166,16 +184,16 @@ public sealed class TrayAppContext : ApplicationContext
     {
         var menu = new ContextMenuStrip();
 
-        _volLabel = new ToolStripMenuItem("볼륨: --") { Enabled = false };
+        _volLabel = new ToolStripMenuItem(Loc.T("볼륨: --", "Volume: --")) { Enabled = false };
         menu.Items.Add(_volLabel);
         menu.Items.Add(new ToolStripSeparator());
 
-        menu.Items.Add(new ToolStripMenuItem("볼륨 슬라이더 열기", null, (_, _) => _panel.ShowNearTray()));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("볼륨 슬라이더 열기", "Open volume slider"), null, (_, _) => _panel.ShowNearTray()));
 
-        var curve = new ToolStripMenuItem("곡선 세기");
-        foreach (var (label, p) in _presets)
+        var curve = new ToolStripMenuItem(Loc.T("곡선 세기", "Volume curve"));
+        foreach (var pr in _presets)
         {
-            var item = new ToolStripMenuItem(label, null, (_, _) => _model.SetP(p));
+            var item = new ToolStripMenuItem(pr.Label, null, (_, _) => _model.SetP(pr.P));
             _presetItems.Add(item);
             curve.DropDownItems.Add(item);
         }
@@ -183,35 +201,40 @@ public sealed class TrayAppContext : ApplicationContext
 
         menu.Items.Add(new ToolStripSeparator());
 
-        _dockItem = new ToolStripMenuItem("Spotify 창에 붙이기", null, (_, _) => ToggleDock())
+        _dockItem = new ToolStripMenuItem(Loc.T("Spotify 창에 붙이기", "Dock to Spotify window"), null, (_, _) => ToggleDock())
         {
             Checked = _settings.DockToSpotify,
         };
         menu.Items.Add(_dockItem);
-        menu.Items.Add(new ToolStripMenuItem("   └ 붙는 위치 기본값으로", null, (_, _) => ResetDock()));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("   └ 붙는 위치 기본값으로", "   └ Reset dock position"), null, (_, _) => ResetDock()));
 
-        _overlayItem = new ToolStripMenuItem("Spotify 볼륨 슬라이더에 겹치기", null, (_, _) => ToggleOverlay())
+        _overlayItem = new ToolStripMenuItem(Loc.T("Spotify 볼륨 슬라이더에 겹치기", "Overlay on Spotify's volume slider"), null, (_, _) => ToggleOverlay())
         {
             Checked = _settings.OverlayOnVolume,
         };
         menu.Items.Add(_overlayItem);
 
-        var overlayPopupItem = new ToolStripMenuItem("   └ 좁을 때 팝업 슬라이더", null, (_, _) => ToggleOverlayPopup())
+        var overlayPopupItem = new ToolStripMenuItem(Loc.T("   └ 좁을 때 팝업 슬라이더", "   └ Pop-out slider when narrow"), null, (_, _) => ToggleOverlayPopup())
         {
             Checked = _settings.OverlayPopup,
         };
         _popupItems.Add(overlayPopupItem);
         menu.Items.Add(overlayPopupItem);
 
-        _startupItem = new ToolStripMenuItem("Windows 시작 시 자동 실행", null, (_, _) => ToggleStartup())
+        _startupItem = new ToolStripMenuItem(Loc.T("Windows 시작 시 자동 실행", "Run at Windows startup"), null, (_, _) => ToggleStartup())
         {
             Checked = StartupManager.IsEnabled(),
         };
         menu.Items.Add(_startupItem);
 
+        var langMenu = new ToolStripMenuItem(Loc.T("언어", "Language"));
+        langMenu.DropDownItems.Add(new ToolStripMenuItem("한국어", null, (_, _) => ApplyLanguage(AppLang.Korean)) { Checked = Loc.Lang == AppLang.Korean });
+        langMenu.DropDownItems.Add(new ToolStripMenuItem("English", null, (_, _) => ApplyLanguage(AppLang.English)) { Checked = Loc.Lang == AppLang.English });
+        menu.Items.Add(langMenu);
+
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("ℹ Spotify 볼륨을 직접 조절합니다 (폰·기기 동기화)") { Enabled = false });
-        menu.Items.Add(new ToolStripMenuItem("종료", null, (_, _) => Exit()));
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("ℹ Spotify 볼륨을 직접 조절합니다 (폰·기기 동기화)", "ℹ Controls Spotify's own volume (syncs to phone & devices)")) { Enabled = false });
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("종료", "Exit"), null, (_, _) => Exit()));
 
         return menu;
     }
@@ -231,7 +254,7 @@ public sealed class TrayAppContext : ApplicationContext
 
     private void RefreshTrayUi()
     {
-        _volLabel.Text = $"볼륨: {_model.Position * 100:0}%  (gain {_model.Gain * 100:0}%)";
+        _volLabel.Text = Loc.T("볼륨", "Volume") + $": {_model.Position * 100:0}%  (gain {_model.Gain * 100:0}%)";
         _tray.Text = $"Volumify — {_model.Position * 100:0}%";
         for (int i = 0; i < _presetItems.Count; i++)
             _presetItems[i].Checked = Math.Abs(_model.P - _presets[i].P) < 0.001f;

@@ -15,7 +15,7 @@ public sealed class ControlPanelForm : Form
     private const int HeaderH = 42;
 
     private readonly VolumeModel _model;
-    private readonly (string Label, float P)[] _presets;
+    private readonly Preset[] _presets;
 
     private readonly CurveGraphPanel _graph = new();
     private readonly PresetBar _presetBar;
@@ -35,11 +35,11 @@ public sealed class ControlPanelForm : Form
     public event Action<Point>? DockOffsetChanged;
     public event Action<Size>? PanelBoundsChanged;
 
-    public ControlPanelForm(VolumeModel model, (string Label, float P)[] presets)
+    public ControlPanelForm(VolumeModel model, Preset[] presets)
     {
         _model = model;
         _presets = presets;
-        _presetBar = new PresetBar(Array.ConvertAll(presets, p => ShortLabel(p.Label)));
+        _presetBar = new PresetBar(Array.ConvertAll(presets, p => p.Number));
         _winEventProc = OnWinEvent;
 
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer
@@ -88,12 +88,8 @@ public sealed class ControlPanelForm : Form
         l.MouseLeave += (_, _) => l.ForeColor = Color.FromArgb(150, 150, 150);
     }
 
-    private static string ShortLabel(string full)
-    {
-        int o = full.LastIndexOf('(');
-        int c = full.LastIndexOf(')');
-        return o >= 0 && c > o ? full.Substring(o + 1, c - o - 1) : full;
-    }
+    /// <summary>Repaint with the current language (the header title is the only translated text here).</summary>
+    public void RefreshTexts() => Invalidate();
 
     protected override bool ShowWithoutActivation => true;
 
@@ -114,7 +110,7 @@ public sealed class ControlPanelForm : Form
             g.FillPath(lb, path);
         using (var titleFont = new Font("Segoe UI Semibold", 10.5f))
         using (var tb = new SolidBrush(Color.White))
-            g.DrawString("Spotify Volume", titleFont, tb, 36, 11);
+            g.DrawString(Loc.T("Spotify 볼륨", "Spotify Volume"), titleFont, tb, 36, 11);
 
         Color dot = _model.SessionFound ? Accent : Color.FromArgb(225, 185, 80);
         using (var dbr = new SolidBrush(dot))

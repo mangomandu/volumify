@@ -14,6 +14,7 @@ public sealed class AppSettings
     public int PanelHeight { get; set; }
     public bool OverlayOnVolume { get; set; }
     public bool OverlayPopup { get; set; } = true; // hover the overlay → roomy fly-out slider above the playbar
+    public string Language { get; set; } = ""; // "ko" / "en"; empty = auto-detect from the OS on first run
 }
 
 /// <summary>Persists settings to %APPDATA%\SpotifyLinearVolume\settings.json (best-effort).</summary>
