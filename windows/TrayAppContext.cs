@@ -270,7 +270,11 @@ public sealed class TrayAppContext : ApplicationContext
 
         settings.DropDownItems.Add(new ToolStripSeparator());
 
-        settings.DropDownItems.Add(new ToolStripMenuItem(Loc.T("강조색 바꾸기…", "Change accent color…"), null, (_, _) => PickAccent()));
+        var accentMenu = new ToolStripMenuItem(Loc.T("강조색", "Accent color"));
+        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("코랄 (기본)", "Coral (default)"), null, (_, _) => SetAccentPreset(Theme.DefaultAccent)));
+        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("스포티파이 그린", "Spotify green"), null, (_, _) => SetAccentPreset(Color.FromArgb(30, 215, 96))));
+        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("직접 선택… (색상코드 / 마우스)", "Custom… (hex / picker)"), null, (_, _) => PickAccent()));
+        settings.DropDownItems.Add(accentMenu);
 
         _startupItem = new ToolStripMenuItem(Loc.T("Windows 시작 시 자동 실행", "Run at Windows startup"), null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
         settings.DropDownItems.Add(_startupItem);
@@ -300,7 +304,12 @@ public sealed class TrayAppContext : ApplicationContext
     {
         using var dlg = new ColorDialog { Color = Theme.Accent, FullOpen = true, AnyColor = true };
         if (dlg.ShowDialog() != DialogResult.OK) return;
-        Theme.SetAccent(dlg.Color);
+        SetAccentPreset(dlg.Color);
+    }
+
+    private void SetAccentPreset(Color c)
+    {
+        Theme.SetAccent(c);
         _settings.AccentArgb = Theme.Accent.ToArgb();
         SettingsStore.Save(_settings);
     }

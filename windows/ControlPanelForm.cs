@@ -34,7 +34,7 @@ public sealed class ControlPanelForm : Form
     private IntPtr _spotifyHwnd;
     private uint _spotifyPid;
     private Point? _dockOffset;
-    private Point _lastAnchor;
+    private Rectangle _lastSpotify;
 
     public event Action<Point>? DockOffsetChanged;
     public event Action<Size>? PanelBoundsChanged;
@@ -189,14 +189,16 @@ public sealed class ControlPanelForm : Form
         if (!_dockMode || _userDragging) return;
         if (!SpotifyWindowTracker.TryGetBounds(_spotifyHwnd, _spotifyPid, out var r)) return;
 
-        _lastAnchor = new Point(r.Left, r.Top);
+        _lastSpotify = r;
         _hasAnchor = true;
         var screen = Screen.FromRectangle(r).WorkingArea;
+        // Anchor to Spotify's bottom-right corner → follows when Spotify is *resized*, not only moved.
+        // Default at the TOP of the right edge (the lyrics window defaults to the bottom — so they don't overlap).
         Point target = _dockOffset is Point off
-            ? new Point(r.Left + off.X, r.Top + off.Y)
+            ? new Point(r.Right + off.X, r.Bottom + off.Y)
             : new Point(
                 r.Right + 8 + Width <= screen.Right ? r.Right + 8 : r.Right - Width - 12,
-                r.Top + (r.Height - Height) / 2);
+                r.Top + 8);
         Location = new Point(
             ClampToScreen(target.X, screen.Left + 8, screen.Right - Width - 8, screen.Left),
             ClampToScreen(target.Y, screen.Top + 8, screen.Bottom - Height - 8, screen.Top));
@@ -274,7 +276,7 @@ public sealed class ControlPanelForm : Form
             _userDragging = false;
             if (_dockMode && _hasAnchor)
             {
-                _dockOffset = new Point(Left - _lastAnchor.X, Top - _lastAnchor.Y);
+                _dockOffset = new Point(Left - _lastSpotify.Right, Top - _lastSpotify.Bottom);
                 DockOffsetChanged?.Invoke(_dockOffset.Value);
             }
             PanelBoundsChanged?.Invoke(ClientSize);
