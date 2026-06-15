@@ -22,16 +22,6 @@ public sealed class SpotifyVolumeController : IDisposable
     private AutomationElement? _blurTarget; // a focusable container to blur the slider onto after SetValue
     private bool _sessionReset;
 
-    public bool IsSpotifyRunning
-    {
-        get
-        {
-            var procs = Process.GetProcessesByName("Spotify");
-            try { return procs.Length > 0; }
-            finally { foreach (var p in procs) p.Dispose(); }
-        }
-    }
-
     /// <summary>Set Spotify's own volume slider to the given value (0..1).</summary>
     public bool SetGain(float gain)
     {

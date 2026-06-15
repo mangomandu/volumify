@@ -13,6 +13,11 @@ public sealed class ControlPanelForm : Form
     private static readonly Color Bg = Color.FromArgb(20, 20, 20);
     private const int HeaderH = 42;
 
+    // Cached once — these used to be reallocated on every repaint (i.e. every drag tick).
+    private static readonly Font TitleFont = new("Segoe UI Semibold", 10.5f);
+    private static readonly Font PctFont = new("Segoe UI", 20f, FontStyle.Bold);
+    private static readonly Font DbFont = new("Segoe UI", 9f);
+
     private readonly VolumeModel _model;
     private readonly Preset[] _presets;
 
@@ -105,9 +110,8 @@ public sealed class ControlPanelForm : Form
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // crisp title — no subpixel fringing on the dark header
 
-        using (var titleFont = new Font("Segoe UI Semibold", 10.5f))
         using (var tb = new SolidBrush(Color.White))
-            g.DrawString(Loc.T("Spotify 볼륨", "Spotify Volume"), titleFont, tb, 16, 11);
+            g.DrawString(Loc.T("Spotify 볼륨", "Spotify Volume"), TitleFont, tb, 16, 11);
 
         if (!_model.SessionFound) // amber warning dot only when Spotify can't be seen — nothing in normal use
             using (var warn = new SolidBrush(Color.FromArgb(225, 185, 80)))
@@ -118,17 +122,15 @@ public sealed class ControlPanelForm : Form
         double db = amp > 0 ? 20 * Math.Log10(amp) : double.NegativeInfinity;
         string pct = $"{felt * 100:0}%";
         string dbText = double.IsNegativeInfinity(db) ? "−∞ dB" : $"{db:0.0} dB";
-        using (var big = new Font("Segoe UI", 20f, FontStyle.Bold))
         {
-            var sz = g.MeasureString(pct, big);
+            var sz = g.MeasureString(pct, PctFont);
             using var wb = new SolidBrush(Color.White);
-            g.DrawString(pct, big, wb, (Width - sz.Width) / 2f, Height - 84);
+            g.DrawString(pct, PctFont, wb, (Width - sz.Width) / 2f, Height - 84);
         }
-        using (var small = new Font("Segoe UI", 9f))
         {
-            var sz = g.MeasureString(dbText, small);
+            var sz = g.MeasureString(dbText, DbFont);
             using var sb = new SolidBrush(Color.FromArgb(140, 140, 140));
-            g.DrawString(dbText, small, sb, (Width - sz.Width) / 2f, Height - 52);
+            g.DrawString(dbText, DbFont, sb, (Width - sz.Width) / 2f, Height - 52);
         }
     }
 

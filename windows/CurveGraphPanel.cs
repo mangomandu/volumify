@@ -10,6 +10,7 @@ public sealed class CurveGraphPanel : Panel
 {
     private const int Pad = 12;
     private static readonly Color Accent = Color.FromArgb(30, 215, 96);
+    private static readonly Font LabelFont = new("Segoe UI", 7.5f); // cached — was reallocated each repaint
 
     private float _p = 0.5f;
     private float _position = 0.5f;
@@ -83,11 +84,10 @@ public sealed class CurveGraphPanel : Panel
             g.DrawEllipse(ring, mx - 4.5f, my - 4.5f, 9, 9);
 
         // Axis labels: what each direction means, kept small and out of the way.
-        using var labelFont = new Font(Font.FontFamily, 7.5f);
         using var labelBrush = new SolidBrush(Color.FromArgb(150, 150, 150));
-        g.DrawString("↑ " + Loc.T("체감 음량", "loudness"), labelFont, labelBrush, area.Left - 2, Pad - 3);
+        g.DrawString("↑ " + Loc.T("체감 음량", "loudness"), LabelFont, labelBrush, area.Left - 2, Pad - 3);
         string xLabel = Loc.T("슬라이더 위치", "slider") + " →";
-        float xWidth = g.MeasureString(xLabel, labelFont).Width;
-        g.DrawString(xLabel, labelFont, labelBrush, area.Right - xWidth + 2, area.Bottom + 5);
+        float xWidth = g.MeasureString(xLabel, LabelFont).Width;
+        g.DrawString(xLabel, LabelFont, labelBrush, area.Right - xWidth + 2, area.Bottom + 5);
     }
 }

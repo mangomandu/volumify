@@ -6,6 +6,8 @@ namespace SpotifyLinearVolume;
 public sealed class PresetBar : Panel
 {
     private static readonly Color Accent = Color.FromArgb(30, 215, 96);
+    private static readonly Font PillFont = new("Segoe UI", 8.5f, FontStyle.Bold); // cached — was reallocated each repaint
+    private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
     private readonly string[] _labels;
     private int _active = -1;
@@ -57,8 +59,6 @@ public sealed class PresetBar : Panel
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float w = (float)Width / n;
-        using var font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-        var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
         for (int i = 0; i < n; i++)
         {
@@ -70,7 +70,7 @@ public sealed class PresetBar : Panel
                 g.FillPath(b, path);
 
             using var tb = new SolidBrush(active ? Color.FromArgb(12, 12, 12) : Color.FromArgb(205, 205, 205));
-            g.DrawString(_labels[i], font, tb, cell, fmt);
+            g.DrawString(_labels[i], PillFont, tb, cell, CenterFmt);
         }
     }
 
