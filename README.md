@@ -58,6 +58,7 @@ Spotify's built‑in curve is **top‑heavy** (≈ `x⁴`): park the slider at t
 ## 🚀 Features
 
 - 🎚️ **Tunable perceptual curve** — presets from *리니어 / Linear (0.3)* through *고름 / Even (0.4, recommended)* to *스포티파이 디폴트 / Spotify default (1.0)*, with a **live curve graph**.
+- 🎤 **Floating synced lyrics** — a top-of-everything lyrics window that *stays up while you browse playlists* (Spotify's own lyrics hide the playlist). Line-synced via [LRCLIB](https://lrclib.net), with a Genius fallback for songs Spotify has no lyrics for. It reads what's playing from Windows' media controls — no Spotify API, no patching.
 - 🔁 **Two‑way sync** — move Spotify's own slider (or a media key, or your phone) and Volumify follows; move Volumify and Spotify follows. Everything stays in step.
 - 📱 **Syncs to every device** — it moves Spotify's own volume, so your phone and Connect speakers come along (no separate OS‑only gain).
 - 🌐 **English & 한국어** — auto‑detects your Windows language on first run; switch anytime from the tray.
@@ -82,7 +83,7 @@ The Windows app lives in [`windows/`](windows). To build from source you need th
 ```powershell
 cd windows
 dotnet build -c Release
-.\bin\Release\net8.0-windows\Volumify.exe
+.\bin\Release\net8.0-windows10.0.19041.0\Volumify.exe
 ```
 
 <details>
@@ -95,7 +96,7 @@ dotnet publish -c Release -r win-x64 --self-contained `
   -p:EnableCompressionInSingleFile=true
 ```
 
-The standalone `Volumify.exe` lands in `windows\bin\Release\net8.0-windows\win-x64\publish\`.
+The standalone `Volumify.exe` lands in `windows\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\`.
 </details>
 
 ## 🧩 Tech

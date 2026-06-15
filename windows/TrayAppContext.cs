@@ -25,11 +25,14 @@ public sealed class TrayAppContext : ApplicationContext
     private readonly Icon? _appIcon = LoadAppIcon();
     private readonly ControlPanelForm _panel;
     private readonly OverlayBarForm _overlay;
+    private readonly NowPlaying _nowPlaying = new();
+    private readonly LyricsForm _lyricsForm;
 
     private ToolStripMenuItem _volLabel = null!;
     private ToolStripMenuItem _dockItem = null!;
     private ToolStripMenuItem _startupItem = null!;
     private ToolStripMenuItem _overlayItem = null!;
+    private ToolStripMenuItem _lyricsItem = null!;
     private readonly List<ToolStripMenuItem> _presetItems = new();
     private readonly List<ToolStripMenuItem> _popupItems = new(); // "좁을 때 팝업" toggle mirrored in both menus
     private readonly System.Windows.Forms.Timer _syncTimer = new() { Interval = 200 }; // poll Spotify for external volume changes
@@ -76,6 +79,17 @@ public sealed class TrayAppContext : ApplicationContext
         _model.Changed += OnModelChanged;
         RefreshTrayUi();
         _overlay.SetActive(_settings.OverlayOnVolume);
+
+        _lyricsForm = new LyricsForm(_nowPlaying);
+        RestoreLyricsBounds();
+        _lyricsForm.CloseRequested += () => { if (_settings.LyricsEnabled) ToggleLyrics(); };
+        _lyricsForm.BoundsChanged += b =>
+        {
+            _settings.HasLyricsBounds = true;
+            _settings.LyricsX = b.X; _settings.LyricsY = b.Y; _settings.LyricsW = b.Width; _settings.LyricsH = b.Height;
+            SettingsStore.Save(_settings);
+        };
+        if (_settings.LyricsEnabled) _lyricsForm.SetActive(true);
 
         // Pull external Spotify volume changes (its own slider, hotkeys, the phone) into every surface.
         _syncTimer.Tick += (_, _) => _model.PumpExternal();
@@ -145,6 +159,28 @@ public sealed class TrayAppContext : ApplicationContext
         SettingsStore.Save(_settings);
     }
 
+    private void ToggleLyrics()
+    {
+        bool enable = !_settings.LyricsEnabled;
+        _settings.LyricsEnabled = enable;
+        _lyricsItem.Checked = enable;
+        _lyricsForm.SetActive(enable);
+        SettingsStore.Save(_settings);
+    }
+
+    private void RestoreLyricsBounds()
+    {
+        if (_settings.HasLyricsBounds
+            && _settings.LyricsW >= _lyricsForm.MinimumSize.Width && _settings.LyricsH >= _lyricsForm.MinimumSize.Height)
+        {
+            var rect = new Rectangle(_settings.LyricsX, _settings.LyricsY, _settings.LyricsW, _settings.LyricsH);
+            foreach (var s in Screen.AllScreens)
+                if (s.WorkingArea.IntersectsWith(rect)) { _lyricsForm.Bounds = rect; return; }
+        }
+        var wa = (Screen.PrimaryScreen ?? Screen.FromControl(_lyricsForm)).WorkingArea;
+        _lyricsForm.Location = new Point(wa.Right - _lyricsForm.Width - 48, wa.Top + 96);
+    }
+
     private ContextMenuStrip BuildOverlayMenu()
     {
         var menu = new ContextMenuStrip();
@@ -202,6 +238,15 @@ public sealed class TrayAppContext : ApplicationContext
         };
         _popupItems.Add(overlayPopupItem);
         menu.Items.Add(overlayPopupItem);
+
+        menu.Items.Add(new ToolStripSeparator());
+
+        // --- floating lyrics window ---
+        _lyricsItem = new ToolStripMenuItem(Loc.T("가사 (떠 있는 창)", "Lyrics (floating window)"), null, (_, _) => ToggleLyrics())
+        {
+            Checked = _settings.LyricsEnabled,
+        };
+        menu.Items.Add(_lyricsItem);
 
         menu.Items.Add(new ToolStripSeparator());
 
@@ -289,6 +334,8 @@ public sealed class TrayAppContext : ApplicationContext
             _model.Dispose();
             _panel.Dispose();
             _overlay.Dispose();
+            _lyricsForm.Dispose();
+            _nowPlaying.Dispose();
         }
         base.Dispose(disposing);
     }

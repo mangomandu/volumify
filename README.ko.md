@@ -58,6 +58,7 @@ gain = x ^ p
 ## 🚀 기능
 
 - 🎚️ **조절 가능한 청감 곡선** — *리니어 / Linear (0.3)*부터 *고름 / Even (0.4, 추천)*을 거쳐 *스포티파이 디폴트 / Spotify default (1.0)*까지 프리셋 + **실시간 곡선 그래프**.
+- 🎤 **떠 있는 실시간 가사** — *플레이리스트를 둘러보는 중에도 위에 떠 있는* 가사 창 (스포티파이 기본 가사는 플리를 가려요). [LRCLIB](https://lrclib.net)로 한 줄씩 동기화, 스포티파이에 가사 없는 곡은 Genius로 보충. 재생 정보는 Windows 미디어 컨트롤에서 읽어요 — 스포티파이 API·패치 없음.
 - 🔁 **양방향 동기화** — 스포티파이 자체 슬라이더(또는 미디어 키, 폰)를 움직이면 Volumify가 따라오고, Volumify를 움직이면 스포티파이가 따라와요. 항상 같이 움직여요.
 - 📱 **모든 기기에 동기화** — 스포티파이 자체 볼륨을 움직이니 폰과 Connect 스피커도 함께 와요 (OS 전용 게인 아님).
 - 🌐 **English & 한국어** — 첫 실행 때 Windows 언어를 자동 감지하고, 트레이에서 언제든 전환할 수 있어요.
@@ -82,7 +83,7 @@ Windows 앱은 [`windows/`](windows)에 있어요. 소스에서 빌드하려면 
 ```powershell
 cd windows
 dotnet build -c Release
-.\bin\Release\net8.0-windows\Volumify.exe
+.\bin\Release\net8.0-windows10.0.19041.0\Volumify.exe
 ```
 
 <details>
@@ -95,7 +96,7 @@ dotnet publish -c Release -r win-x64 --self-contained `
   -p:EnableCompressionInSingleFile=true
 ```
 
-독립 실행형 `Volumify.exe`는 `windows\bin\Release\net8.0-windows\win-x64\publish\`에 생겨요.
+독립 실행형 `Volumify.exe`는 `windows\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\`에 생겨요.
 </details>
 
 ## 🧩 기술

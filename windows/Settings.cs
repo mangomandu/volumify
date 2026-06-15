@@ -14,6 +14,12 @@ public sealed class AppSettings
     public int PanelHeight { get; set; }
     public bool OverlayOnVolume { get; set; }
     public bool OverlayPopup { get; set; } = true; // hover the overlay → roomy fly-out slider above the playbar
+    public bool LyricsEnabled { get; set; } // floating synced-lyrics window
+    public bool HasLyricsBounds { get; set; }
+    public int LyricsX { get; set; }
+    public int LyricsY { get; set; }
+    public int LyricsW { get; set; }
+    public int LyricsH { get; set; }
     public string Language { get; set; } = ""; // "ko" / "en"; empty = auto-detect from the OS on first run
 }
 
