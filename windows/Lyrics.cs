@@ -141,25 +141,27 @@ public static class LyricsProvider
         var mxm = await Safe(TryMusixmatchAsync(t, ct));
         if (mxm.Synced || mxm.Instrumental) return mxm;
 
-        // No synced yet → race Bugs (Korean services license lyrics directly, so they have the K-pop / Korean
-        // long tail Musixmatch misses; fast + synced), Genius (fast, plain) and a hard-capped LRCLIB (synced but
-        // currently very slow). Return the first synced; else take a plain once Bugs settles — never wait on LRCLIB.
+        // No synced yet → race the Korean synced services (Bugs + Genie license lyrics directly, so they cover
+        // the K-pop / Korean long tail Musixmatch misses; fast), Genius (fast, plain) and a hard-capped LRCLIB
+        // (synced but currently very slow). First synced wins; else take a plain once both Korean sources have
+        // settled — never wait on slow LRCLIB.
         var bugs = Safe(TryBugsAsync(t, ct));
+        var genie = Safe(TryGenieAsync(t, ct));
         var gen = Safe(TryGeniusAsync(t, ct));
         var lrc = CappedLrclibAsync(t, ct, 2000);
 
         LyricsResult plain = (mxm.Found && !mxm.Instrumental) ? mxm : LyricsResult.None;
-        bool bugsSettled = false;
-        var pending = new List<Task<LyricsResult>> { bugs, gen, lrc };
+        int koreanLeft = 2; // Bugs + Genie — the fast synced sources we prefer over plain
+        var pending = new List<Task<LyricsResult>> { bugs, genie, gen, lrc };
         while (pending.Count > 0)
         {
             var done = await Task.WhenAny(pending);
             pending.Remove(done);
             var r = await done;
-            if (r.Synced) return r;                          // Bugs (or a fast LRCLIB) synced wins
-            if (ReferenceEquals(done, bugs)) bugsSettled = true;
+            if (r.Synced) return r;                                           // Bugs/Genie (or a fast LRCLIB) synced wins
+            if (ReferenceEquals(done, bugs) || ReferenceEquals(done, genie)) koreanLeft--;
             if (r.Found && !r.Instrumental && !plain.Found) plain = r;
-            if (bugsSettled && plain.Found) return plain;    // fast plain ready, no fast synced → don't wait on LRCLIB
+            if (koreanLeft == 0 && plain.Found) return plain;                 // both Korean sources done, no synced → use plain
         }
         return plain.Found ? plain : LyricsResult.None;
     }
@@ -412,6 +414,52 @@ public static class LyricsProvider
             }
             var plainLines = ParsePlain(s.Replace("\r\n", "\n"));
             return plainLines.Count > 0 ? new LyricsResult(plainLines, false, false, true, "bugs") : LyricsResult.None;
+        }
+        catch { return LyricsResult.None; }
+    }
+
+    // ---------- Genie (지니; Korean, synced. Clean JSON search API → more robust than Bugs' HTML, good backup) ----------
+    private static async Task<LyricsResult> TryGenieAsync(NowPlaying.TrackInfo t, CancellationToken ct)
+    {
+        var json = await GetStringAsync($"https://www.genie.co.kr/search/searchAuto?query={Enc(t.Artist + " " + t.Title)}", BrowserUa, ct);
+        if (json == null) return LyricsResult.None;
+
+        string? id = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("song", out var songs) || songs.ValueKind != JsonValueKind.Array) return LyricsResult.None;
+            foreach (var s in songs.EnumerateArray())
+            {
+                string gotArtist = s.TryGetProperty("field1", out var a) ? a.GetString() ?? "" : ""; // field1 = artist
+                string gotTitle = s.TryGetProperty("word", out var w) ? w.GetString() ?? "" : "";    // word   = title
+                if (!RoughTitleMatch(t.Title, gotTitle)) continue;
+                if (t.Artist.Length > 0 && gotArtist.Length > 0 && !RoughTitleMatch(t.Artist, gotArtist)) continue;
+                if (s.TryGetProperty("id", out var i)) { id = i.GetString(); break; }
+            }
+        }
+        catch { }
+        if (id == null) return LyricsResult.None;
+
+        var msl = await GetStringAsync($"https://dn.genie.co.kr/app/purchase/get_msl.asp?path=a&songid={id}", BrowserUa, ct);
+        return ParseGenieMsl(msl);
+    }
+
+    // Genie get_msl is JSONP: null({"<ms>":"<line>", …}) — keys are millisecond timestamps.
+    private static LyricsResult ParseGenieMsl(string? jsonp)
+    {
+        if (jsonp == null) return LyricsResult.None;
+        int open = jsonp.IndexOf('{'), close = jsonp.LastIndexOf('}');
+        if (open < 0 || close <= open) return LyricsResult.None;
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonp[open..(close + 1)]);
+            var lines = new List<LyricLine>();
+            foreach (var p in doc.RootElement.EnumerateObject())
+                if (long.TryParse(p.Name, out long ms) && p.Value.ValueKind == JsonValueKind.String)
+                    lines.Add(new LyricLine(ms, (p.Value.GetString() ?? "").Trim()));
+            lines.Sort((a, b) => a.TimeMs.CompareTo(b.TimeMs));
+            return lines.Count > 0 ? new LyricsResult(lines, true, false, true, "genie") : LyricsResult.None;
         }
         catch { return LyricsResult.None; }
     }
