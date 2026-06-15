@@ -25,8 +25,11 @@ public sealed class VolumeModel : IDisposable
     private volatile bool _sessionFound;
     private volatile float _externalGain = -1f; // latest Spotify slider value seen by the background poll (-1 = none)
 
-    private const int PollIntervalMs = 200;
+    private const int PollBaseMs = 200;     // fast poll right after activity
+    private const int PollIdleMaxMs = 500;  // B: Spotify open but nothing changing → ease off
+    private const int PollLostMaxMs = 3000; // A: Spotify/slider not found → back off hard
     private const float SyncEpsilon = 0.005f;
+    private int _pollMs = PollBaseMs;        // current adaptive poll interval (push thread only)
 
     public float Position { get; private set; } = 0.5f;
     public float P { get; private set; } = 1f;
@@ -89,7 +92,7 @@ public sealed class VolumeModel : IDisposable
     {
         while (true)
         {
-            _pushSignal.WaitOne(PollIntervalMs); // wake on a queued write, else every PollIntervalMs to poll
+            _pushSignal.WaitOne(_pollMs); // wake on a queued write, else after the adaptive poll interval
             if (_disposed) return;
 
             float? toPush = null;
@@ -102,6 +105,7 @@ public sealed class VolumeModel : IDisposable
             {
                 _sessionFound = _controller.SetGain(toPush.Value);
                 _externalGain = toPush.Value; // we own this value now; a stale poll mustn't snap us back to it
+                _pollMs = PollBaseMs;         // a user write means activity → poll fast again
                 continue;
             }
 
@@ -109,7 +113,20 @@ public sealed class VolumeModel : IDisposable
             // phone) can be folded into our model by PumpExternal on the UI thread. All UI Automation
             // access stays on this one thread, so there's no cross-thread contention on the controller.
             var g = _controller.GetGain();
-            if (g.HasValue) { _sessionFound = true; _externalGain = g.Value; }
+            if (g.HasValue)
+            {
+                _sessionFound = true;
+                bool changed = _externalGain < 0f || Math.Abs(g.Value - _externalGain) > SyncEpsilon;
+                _externalGain = g.Value;
+                // B: ease the poll toward idle when nothing changes; snap back to fast on any external move.
+                _pollMs = changed ? PollBaseMs : Math.Min(_pollMs + 100, PollIdleMaxMs);
+            }
+            else
+            {
+                // A: Spotify/slider not found — each GetGain here is an expensive process+window+UIA walk,
+                // so back off hard instead of hammering it 5×/sec while Spotify is closed.
+                _pollMs = Math.Min(_pollMs * 2, PollLostMaxMs);
+            }
         }
     }
 
