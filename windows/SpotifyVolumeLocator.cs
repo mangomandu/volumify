@@ -36,8 +36,25 @@ public static class SpotifyVolumeLocator
         "full screen", "fullscreen", "mini player", "miniplayer",
     };
 
+    // The rail's geometry is fixed for a given window SIZE; only its on-screen position follows the window.
+    // So walk Spotify's UIA tree only when the size changes — otherwise reuse the cached rail rect (stored
+    // relative to the window) and just re-apply the current window position. That full-descendants tree walk
+    // is what wakes Chromium's accessibility engine; the overlay re-asking on every move/tick used to keep it
+    // hot (~7% Spotify CPU + 1.5% here). Caching per size makes the overlay near-free.
+    private static readonly object _cacheGate = new();
+    private static IntPtr _cacheHwnd;
+    private static (int w, int h) _cacheSize;
+    private static Rectangle _cacheRel;   // rail rect relative to the window top-left
+    private static bool _cacheValid;
+
     public static Rectangle? FindVolumeRect(IntPtr spotifyHwnd)
     {
+        lock (_cacheGate)
+        {
+            if (_cacheValid && spotifyHwnd == _cacheHwnd && GetWindowRect(spotifyHwnd, out var wc)
+                && _cacheSize == (wc.Right - wc.Left, wc.Bottom - wc.Top))
+                return new Rectangle(wc.Left + _cacheRel.X, wc.Top + _cacheRel.Y, _cacheRel.Width, _cacheRel.Height);
+        }
         try
         {
             var root = AutomationElement.FromHandle(spotifyHwnd);
@@ -98,7 +115,15 @@ public static class SpotifyVolumeLocator
 
             // Vertical centre: UIA's Y is unreliable in the playbar, so anchor to the window bottom.
             int centerY = win.Bottom - PlaybarCenterOffset;
-            return new Rectangle(railLeft, centerY - SliderHeight / 2, width, SliderHeight);
+            var rect = new Rectangle(railLeft, centerY - SliderHeight / 2, width, SliderHeight);
+            lock (_cacheGate)
+            {
+                _cacheHwnd = spotifyHwnd;
+                _cacheSize = (win.Right - win.Left, win.Bottom - win.Top);
+                _cacheRel = new Rectangle(rect.X - win.Left, rect.Y - win.Top, rect.Width, rect.Height);
+                _cacheValid = true;
+            }
+            return rect;
         }
         catch
         {
