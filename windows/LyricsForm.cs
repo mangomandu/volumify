@@ -39,6 +39,7 @@ public sealed class LyricsForm : Form
 
     private int _activeIdx = -1;
     private int _hoverRow = -1;           // synced lyrics: line under the cursor (click-to-seek affordance)
+    private bool _canSearch;              // not-found state → offer a one-click web search (the long tail lives on niche sites)
     private float _scroll, _targetScroll;
     private bool _userScrolled;          // plain lyrics: wheel-controlled
     private long _userScrollTick;
@@ -138,7 +139,7 @@ public sealed class LyricsForm : Form
         _fetchCts?.Cancel();
         _lyrics = LyricsResult.None;
         _rows.Clear(); _layoutDirty = true;
-        _scroll = _targetScroll = 0; _activeIdx = -1; _userScrolled = false;
+        _scroll = _targetScroll = 0; _activeIdx = -1; _userScrolled = false; _canSearch = false;
 
         if (track == null || track.IsEmpty) { _status = Loc.T("재생 중인 곡이 없어요", "Nothing playing"); Invalidate(); return; }
         _status = Loc.T("가사 찾는 중…", "Finding lyrics…");
@@ -156,6 +157,7 @@ public sealed class LyricsForm : Form
         _status = res.Instrumental ? Loc.T("연주곡 (가사 없음)", "Instrumental")
                : !res.Found ? Loc.T("가사를 찾지 못했어요", "No lyrics found")
                : "";
+        _canSearch = !res.Found && !res.Instrumental; // genuinely missing → let the user search the web for it
         Invalidate();
     }
 
@@ -223,7 +225,9 @@ public sealed class LyricsForm : Form
     protected override void OnMouseClick(MouseEventArgs e)
     {
         base.OnMouseClick(e);
-        if (e.Button != MouseButtons.Left || !_lyrics.Synced) return;
+        if (e.Button != MouseButtons.Left) return;
+        if (_canSearch && e.Y >= HeaderH) { OpenWebSearch(); return; } // not-found → web search
+        if (!_lyrics.Synced) return;
         int r = RowAt(e.Location);
         if (r < 0) return;
         var line = _lyrics.Lines[_rows[r].line];
@@ -238,7 +242,7 @@ public sealed class LyricsForm : Form
     {
         base.OnMouseMove(e);
         int r = (_lyrics.Synced && e.Y >= HeaderH) ? RowAt(e.Location) : -1;
-        bool clickable = r >= 0 && _lyrics.Lines[_rows[r].line].TimeMs >= 0;
+        bool clickable = (r >= 0 && _lyrics.Lines[_rows[r].line].TimeMs >= 0) || (_canSearch && e.Y >= HeaderH);
         Cursor = clickable ? Cursors.Hand : Cursors.Default;
         if (r != _hoverRow) { _hoverRow = r; Invalidate(); }
     }
@@ -261,6 +265,15 @@ public sealed class LyricsForm : Form
             if (p.Y >= y && p.Y < y + _rows[r].height) return r;
         }
         return -1;
+    }
+
+    private void OpenWebSearch()
+    {
+        var t = _track;
+        if (t == null) return;
+        string q = Uri.EscapeDataString($"{t.Artist} {t.Title} " + Loc.T("가사", "lyrics"));
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"https://www.google.com/search?q={q}") { UseShellExecute = true }); }
+        catch { }
     }
 
     // ----- paint -----
@@ -296,6 +309,12 @@ public sealed class LyricsForm : Form
         {
             using var stb = new SolidBrush(Color.FromArgb(150, 150, 150));
             g.DrawString(_status, StatusFont, stb, new RectangleF(Pad, vp.Top, vp.Width - 2 * Pad, vp.Height), CenterFmt);
+            if (_canSearch) // one-click bridge to the web (niche releases only the distributor has, e.g. linkco.re)
+            {
+                using var hb = new SolidBrush(Accent);
+                g.DrawString(Loc.T("🔍 브라우저에서 검색", "🔍 Search the web"), StatusFont, hb,
+                    new RectangleF(Pad, vp.Top + vp.Height / 2f + 16, vp.Width - 2 * Pad, 26), CenterFmt);
+            }
             return;
         }
 
