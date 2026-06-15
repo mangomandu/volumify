@@ -237,7 +237,7 @@ public sealed class OverlayBarForm : Form
             if (_spotifySize != r.Size)
                 NoteSpotifySizeChanged(r.Size);
             else if (!IsResizeDebouncing(r.Size) && !_resizeSettleTimer.Enabled)
-                QueryRelRectAsync(_spotifyHwnd, _spotifyPid);
+                QueryRelRectAsync(_spotifyHwnd, _spotifyPid, fresh: false); // steady state → cached locate is fine
         }
         Reposition(r);
     }
@@ -282,27 +282,27 @@ public sealed class OverlayBarForm : Form
             return;
         }
 
-        bool currentRectMissing = _relRect == null || _relSize != r.Size;
-        if (currentRectMissing || _resizeProbeBudget > 0)
-        {
-            if (_querying)
-            {
-                _pendingRequery = true;
-                Reposition(r);
-                return;
-            }
+        bool haveStableRect = _relRect != null && _relSize == r.Size;
 
-            if (!currentRectMissing && Environment.TickCount64 - _lastResizeTick >= ResizeDebounceMs)
-                _resizeProbeBudget--;
-            QueryRelRectAsync(_spotifyHwnd, _spotifyPid);
+        // Done settling: we have a stable rect for the current size and the probe budget is spent. Stop —
+        // otherwise the overlay re-walks Spotify's UIA tree forever, which keeps Chromium accessibility hot
+        // (~7% Spotify CPU). The old code never reached this because a probe was almost always in flight.
+        if (haveStableRect && _resizeProbeBudget <= 0)
+        {
+            _resizeSettleTimer.Stop();
             Reposition(r);
             return;
         }
 
-        _resizeSettleTimer.Stop();
+        // A probe is already in flight — wait for it; don't pile on (that's what kept the loop alive).
+        if (_querying) { Reposition(r); return; }
+
+        if (haveStableRect) _resizeProbeBudget--; // count each completed probe toward convergence
+        QueryRelRectAsync(_spotifyHwnd, _spotifyPid, fresh: true); // settling → re-walk past the cache for the final layout
+        Reposition(r);
     }
 
-    private void QueryRelRectAsync(IntPtr hwnd, uint pid)
+    private void QueryRelRectAsync(IntPtr hwnd, uint pid, bool fresh)
     {
         if (_querying) { _pendingRequery = true; return; }
         _querying = true;
@@ -317,7 +317,7 @@ public sealed class OverlayBarForm : Form
                 {
                     if (SpotifyWindowTracker.TryGetBounds(hwnd, pid, out var winBefore))
                     {
-                        var abs = SpotifyVolumeLocator.FindVolumeRect(hwnd);
+                        var abs = SpotifyVolumeLocator.FindVolumeRect(hwnd, fresh);
                         if (abs is Rectangle a && SpotifyWindowTracker.TryGetBounds(hwnd, pid, out var winAfter)
                             && winAfter == winBefore)
                         {
@@ -386,7 +386,7 @@ public sealed class OverlayBarForm : Form
                 }
                 else
                 {
-                    QueryRelRectAsync(_spotifyHwnd, _spotifyPid);
+                    QueryRelRectAsync(_spotifyHwnd, _spotifyPid, fresh: true); // draining a resize requery
                 }
             }
         }

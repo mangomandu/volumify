@@ -47,14 +47,17 @@ public static class SpotifyVolumeLocator
     private static Rectangle _cacheRel;   // rail rect relative to the window top-left
     private static bool _cacheValid;
 
-    public static Rectangle? FindVolumeRect(IntPtr spotifyHwnd)
+    // forceFresh bypasses the cache (still updating it) — used while the overlay is settling a resize, since
+    // Spotify reflows the playbar asynchronously and the rail's final spot needs a few fresh re-probes.
+    public static Rectangle? FindVolumeRect(IntPtr spotifyHwnd, bool forceFresh = false)
     {
-        lock (_cacheGate)
-        {
-            if (_cacheValid && spotifyHwnd == _cacheHwnd && GetWindowRect(spotifyHwnd, out var wc)
-                && _cacheSize == (wc.Right - wc.Left, wc.Bottom - wc.Top))
-                return new Rectangle(wc.Left + _cacheRel.X, wc.Top + _cacheRel.Y, _cacheRel.Width, _cacheRel.Height);
-        }
+        if (!forceFresh)
+            lock (_cacheGate)
+            {
+                if (_cacheValid && spotifyHwnd == _cacheHwnd && GetWindowRect(spotifyHwnd, out var wc)
+                    && _cacheSize == (wc.Right - wc.Left, wc.Bottom - wc.Top))
+                    return new Rectangle(wc.Left + _cacheRel.X, wc.Top + _cacheRel.Y, _cacheRel.Width, _cacheRel.Height);
+            }
         try
         {
             var root = AutomationElement.FromHandle(spotifyHwnd);
