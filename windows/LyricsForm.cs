@@ -19,6 +19,7 @@ public sealed class LyricsForm : Form
     private static readonly Font HeaderFont = new("Segoe UI Semibold", 9.5f);
     private static readonly Font ArtistFont = new("Segoe UI", 8.5f);
     private static readonly Font StatusFont = new("Segoe UI", 11f);
+    private static readonly Font EmojiFont = new("Segoe UI Emoji", 30f);
     private static readonly StringFormat WrapFmt = new() { FormatFlags = 0 };
     private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
@@ -307,6 +308,15 @@ public sealed class LyricsForm : Form
 
         if (_lyrics.Lines.Count == 0)
         {
+            if (_lyrics.Instrumental) // cat at the piano 🎹🐈
+            {
+                using var eb = new SolidBrush(Color.FromArgb(205, 205, 205));
+                using var ib = new SolidBrush(Color.FromArgb(150, 150, 150));
+                g.DrawString("🎹🐈", EmojiFont, eb, new RectangleF(Pad, vp.Top + vp.Height / 2f - 58, vp.Width - 2 * Pad, 54), CenterFmt);
+                g.DrawString(Loc.T("연주곡 · 가사 없음", "Instrumental · no lyrics"), StatusFont, ib,
+                    new RectangleF(Pad, vp.Top + vp.Height / 2f + 6, vp.Width - 2 * Pad, 28), CenterFmt);
+                return;
+            }
             using var stb = new SolidBrush(Color.FromArgb(150, 150, 150));
             g.DrawString(_status, StatusFont, stb, new RectangleF(Pad, vp.Top, vp.Width - 2 * Pad, vp.Height), CenterFmt);
             if (_canSearch) // one-click bridge to the web (niche releases only the distributor has, e.g. linkco.re)

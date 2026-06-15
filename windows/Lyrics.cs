@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -47,7 +48,7 @@ public static class LyricsProvider
     // The "v2" segment is a cache version — bump it whenever match/parse logic changes so stale results
     // (e.g. a wrong song cached before match validation existed) are ignored instead of served forever.
     private static readonly string DiskCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v2");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v3");
 
     // Musixmatch needs a "user token". token.get is heavily rate-limited (a few mints trip a captcha),
     // so we mint ONE and reuse it — persisted across launches via InitToken. null = unknown,
@@ -132,27 +133,44 @@ public static class LyricsProvider
 
     private static async Task<LyricsResult> FetchAsync(NowPlaying.TrackInfo t, CancellationToken ct)
     {
+        // Obvious instrumentals (the title says so) → don't waste any lookups, just say "instrumental".
+        if (LooksInstrumental(t.Title) || LooksInstrumental(t.Album)) return LyricsResult.Inst("title");
+
         // Musixmatch is fast (~1s) and authoritative — it's the database Spotify itself uses. Try it first;
-        // if it has synced lyrics we're done. (Measured: LRCLIB is currently 6–21s and often errors, so we
-        // must never block the fallback on it.)
+        // synced → done, and it also flags instrumentals (so many piano/score tracks resolve here, no search).
         var mxm = await Safe(TryMusixmatchAsync(t, ct));
-        if (mxm.Synced) return mxm;
+        if (mxm.Synced || mxm.Instrumental) return mxm;
 
-        // No synced from Musixmatch → run Genius (plain, ~0.6s) and a hard-capped LRCLIB (synced, slow)
-        // together. Use the fast plain the moment it's ready; only wait on LRCLIB when the fast one finds nothing.
-        var lrc = CappedLrclibAsync(t, ct, 2500);
+        // No synced yet → race Bugs (Korean services license lyrics directly, so they have the K-pop / Korean
+        // long tail Musixmatch misses; fast + synced), Genius (fast, plain) and a hard-capped LRCLIB (synced but
+        // currently very slow). Return the first synced; else take a plain once Bugs settles — never wait on LRCLIB.
+        var bugs = Safe(TryBugsAsync(t, ct));
         var gen = Safe(TryGeniusAsync(t, ct));
+        var lrc = CappedLrclibAsync(t, ct, 2000);
 
-        var firstDone = await Task.WhenAny(lrc, gen);
-        var first = await firstDone;
-        if (first.Synced) return first;     // a fast LRCLIB synced actually beat Genius
-        if (first.Found) return first;      // Genius (or LRCLIB) plain is ready → show it now, don't wait on the slow one
+        LyricsResult plain = (mxm.Found && !mxm.Instrumental) ? mxm : LyricsResult.None;
+        bool bugsSettled = false;
+        var pending = new List<Task<LyricsResult>> { bugs, gen, lrc };
+        while (pending.Count > 0)
+        {
+            var done = await Task.WhenAny(pending);
+            pending.Remove(done);
+            var r = await done;
+            if (r.Synced) return r;                          // Bugs (or a fast LRCLIB) synced wins
+            if (ReferenceEquals(done, bugs)) bugsSettled = true;
+            if (r.Found && !r.Instrumental && !plain.Found) plain = r;
+            if (bugsSettled && plain.Found) return plain;    // fast plain ready, no fast synced → don't wait on LRCLIB
+        }
+        return plain.Found ? plain : LyricsResult.None;
+    }
 
-        // The fast source found nothing → fall back to the other (this is when LRCLIB earns its keep).
-        var other = await (ReferenceEquals(firstDone, lrc) ? gen : lrc);
-        if (other.Found) return other;
-        if (mxm.Found) return mxm;          // Musixmatch plain / instrumental marker
-        return LyricsResult.None;
+    private static bool LooksInstrumental(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        string n = s.ToLowerInvariant();
+        return n.Contains("instrumental") || n.Contains("(inst.)") || n.Contains("(inst)") || n.Contains("[inst]")
+            || n.Contains("karaoke") || n.Contains("off vocal") || n.Contains("backing track")
+            || n.Contains("연주곡") || n.Contains("반주");
     }
 
     // LRCLIB with a hard cap — it's a useful synced source but currently very slow, so it must never stall us.
@@ -338,6 +356,64 @@ public static class LyricsProvider
         }
         catch (OperationCanceledException) { throw; }
         catch { return null; }
+    }
+
+    // ---------- Bugs (synced; Korean services license lyrics directly, so they cover the K-pop / Korean
+    //            long tail Musixmatch misses — e.g. brand-new B-sides. Fast: search ~0.5s, lyrics ~instant) ----------
+    private static async Task<LyricsResult> TryBugsAsync(NowPlaying.TrackInfo t, CancellationToken ct)
+    {
+        var html = await GetStringAsync($"https://music.bugs.co.kr/search/track?q={Enc(t.Artist + " " + t.Title)}", BrowserUa, ct);
+        if (html == null) return LyricsResult.None;
+
+        // Pair each result's (trackId, title) with the artist that follows it; take the first that matches.
+        var titles = Regex.Matches(html, @"bugs\.music\.listen\('(\d+)'.*?\btitle=""([^""]+)""", RegexOptions.Singleline);
+        var artists = Regex.Matches(html, @"<p class=""artist"">\s*<a\b[^>]*?\btitle=""([^""]+)""");
+        string? id = null;
+        for (int i = 0; i < titles.Count; i++)
+        {
+            string gotTitle = WebUtility.HtmlDecode(titles[i].Groups[2].Value);
+            string gotArtist = i < artists.Count ? WebUtility.HtmlDecode(artists[i].Groups[1].Value) : "";
+            if (!RoughTitleMatch(t.Title, gotTitle)) continue;
+            if (t.Artist.Length > 0 && gotArtist.Length > 0 && !RoughTitleMatch(t.Artist, gotArtist)) continue;
+            id = titles[i].Groups[1].Value; break;
+        }
+        if (id == null) return LyricsResult.None;
+
+        var synced = await GetStringAsync($"https://music.bugs.co.kr/player/lyrics/T/{id}", BrowserUa, ct);
+        var r = ParseBugsLyrics(synced, true);
+        if (r.Found) return r;
+        var plain = await GetStringAsync($"https://music.bugs.co.kr/player/lyrics/N/{id}", BrowserUa, ct);
+        return ParseBugsLyrics(plain, false);
+    }
+
+    // Bugs lyrics JSON: {"lyrics":"<sec>|<text>＃<sec>|<text>…"} synced, or {"lyrics":"<line>\r\n<line>…"} plain.
+    private static LyricsResult ParseBugsLyrics(string? json, bool synced)
+    {
+        if (json == null) return LyricsResult.None;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("lyrics", out var ly) || ly.ValueKind != JsonValueKind.String) return LyricsResult.None;
+            string s = ly.GetString() ?? "";
+            if (s.Trim().Length == 0) return LyricsResult.None;
+
+            if (synced)
+            {
+                var lines = new List<LyricLine>();
+                foreach (var part in s.Split('＃'))
+                {
+                    int bar = part.IndexOf('|');
+                    if (bar <= 0) continue;
+                    if (double.TryParse(part.AsSpan(0, bar), NumberStyles.Float, CultureInfo.InvariantCulture, out double sec))
+                        lines.Add(new LyricLine((long)Math.Round(sec * 1000), part[(bar + 1)..].Trim()));
+                }
+                lines.Sort((a, b) => a.TimeMs.CompareTo(b.TimeMs));
+                return lines.Count > 0 ? new LyricsResult(lines, true, false, true, "bugs") : LyricsResult.None;
+            }
+            var plainLines = ParsePlain(s.Replace("\r\n", "\n"));
+            return plainLines.Count > 0 ? new LyricsResult(plainLines, false, false, true, "bugs") : LyricsResult.None;
+        }
+        catch { return LyricsResult.None; }
     }
 
     // ---------- LRCLIB (synced) ----------
