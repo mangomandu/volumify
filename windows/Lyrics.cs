@@ -38,9 +38,9 @@ public static class LyricsProvider
     private static readonly HttpClient Http = new(new SocketsHttpHandler
     {
         AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-        ConnectTimeout = TimeSpan.FromSeconds(8),
+        ConnectTimeout = TimeSpan.FromSeconds(5),
     })
-    { Timeout = TimeSpan.FromSeconds(14) };
+    { Timeout = TimeSpan.FromSeconds(10) };
 
     private static readonly object _cacheGate = new();
     private static readonly Dictionary<string, LyricsResult> _cache = new();
@@ -130,28 +130,37 @@ public static class LyricsProvider
 
     private static async Task<LyricsResult> FetchAsync(NowPlaying.TrackInfo t, CancellationToken ct)
     {
-        // Synced sources race in parallel — the first synced result wins (fast, and never scrapes first).
-        var pending = new List<Task<LyricsResult>>
-        {
-            Safe(TryMusixmatchAsync(t, ct)),
-            Safe(TryLrclibAsync(t, ct)),
-        };
-        LyricsResult plain = LyricsResult.None, inst = LyricsResult.None;
-        while (pending.Count > 0)
-        {
-            var done = await Task.WhenAny(pending);
-            pending.Remove(done);
-            var r = await done; // Safe() guarantees this won't throw (except cancellation)
-            if (r.Synced) return r;                          // best case: timed lyrics that follow along
-            if (r.Instrumental && !inst.Found) inst = r;
-            else if (r.Found && !plain.Found) plain = r;     // a plain hit, kept only as a fallback
-        }
-        if (plain.Found) return plain;
-        if (inst.Found) return inst;
+        // Musixmatch is fast (~1s) and authoritative — it's the database Spotify itself uses. Try it first;
+        // if it has synced lyrics we're done. (Measured: LRCLIB is currently 6–21s and often errors, so we
+        // must never block the fallback on it.)
+        var mxm = await Safe(TryMusixmatchAsync(t, ct));
+        if (mxm.Synced) return mxm;
 
-        // Long tail only: now we scrape Genius (plain text, no timing — can't follow along).
-        var genius = await TryGeniusAsync(t, ct);
-        return genius.Found ? genius : LyricsResult.None;
+        // No synced from Musixmatch → run Genius (plain, ~0.6s) and a hard-capped LRCLIB (synced, slow)
+        // together. Use the fast plain the moment it's ready; only wait on LRCLIB when the fast one finds nothing.
+        var lrc = CappedLrclibAsync(t, ct, 2500);
+        var gen = Safe(TryGeniusAsync(t, ct));
+
+        var firstDone = await Task.WhenAny(lrc, gen);
+        var first = await firstDone;
+        if (first.Synced) return first;     // a fast LRCLIB synced actually beat Genius
+        if (first.Found) return first;      // Genius (or LRCLIB) plain is ready → show it now, don't wait on the slow one
+
+        // The fast source found nothing → fall back to the other (this is when LRCLIB earns its keep).
+        var other = await (ReferenceEquals(firstDone, lrc) ? gen : lrc);
+        if (other.Found) return other;
+        if (mxm.Found) return mxm;          // Musixmatch plain / instrumental marker
+        return LyricsResult.None;
+    }
+
+    // LRCLIB with a hard cap — it's a useful synced source but currently very slow, so it must never stall us.
+    private static async Task<LyricsResult> CappedLrclibAsync(NowPlaying.TrackInfo t, CancellationToken ct, int capMs)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(capMs);
+        try { return await TryLrclibAsync(t, cts.Token); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return LyricsResult.None; } // our cap, not the caller's
+        catch { return LyricsResult.None; }
     }
 
     private static async Task<LyricsResult> Safe(Task<LyricsResult> task)
