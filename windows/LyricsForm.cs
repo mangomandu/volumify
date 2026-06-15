@@ -11,7 +11,7 @@ namespace Volumify;
 public sealed class LyricsForm : Form
 {
     private static readonly Color Bg = Color.FromArgb(28, 27, 25);         // warm near-black (Claude-ish)
-    private static readonly Color Accent = Color.FromArgb(204, 120, 92);   // Claude coral #CC785C
+    private static Color Accent => Theme.Accent;                           // shared, user-customizable
     private static readonly Color TextActive = Color.FromArgb(245, 243, 239);
     private static readonly Color TextDim = Color.FromArgb(150, 145, 138);
     private const int HeaderH = 38;
@@ -52,6 +52,7 @@ public sealed class LyricsForm : Form
     public event Action<Point>? DockOffsetChanged; // user dragged while docked → persist the new offset
 
     public void SetDockOffset(Point? offset) => _dock.SetOffset(offset);
+    public void SetKeepWhenMinimized(bool keep) => _dock.SetHideWhenAbsent(!keep);
 
     public LyricsForm(NowPlaying np)
     {
@@ -108,7 +109,7 @@ public sealed class LyricsForm : Form
         {
             LyricsProvider.WarmUp(); // mint the Musixmatch token now so the first lookup isn't slowed by it
             _timer.Start();
-            _dock.SetEnabled(true); // follows Spotify + shows/hides with it (the dock decides visibility by presence)
+            _dock.SetEnabled(true); // the dock shows the window (next to Spotify, or kept up when minimized) + follows it
             KickFetch(); // (re)load lyrics for whatever's playing now
         }
         else
@@ -329,13 +330,6 @@ public sealed class LyricsForm : Form
             g.DrawString(Ellipsize(g, title, HeaderFont, ClientSize.Width - 70), HeaderFont, tb, 16, 8);
             if (artist.Length > 0)
                 g.DrawString(Ellipsize(g, artist, ArtistFont, ClientSize.Width - 70), ArtistFont, sb, 16, 22);
-        }
-
-        // sync indicator, just left of ✕: green = synced (follows + click-to-seek), gray = plain text only
-        if (_lyrics.Found && _lyrics.Lines.Count > 0)
-        {
-            using var dotB = new SolidBrush(_lyrics.Synced ? Accent : Color.FromArgb(110, 110, 110));
-            g.FillEllipse(dotB, ClientSize.Width - 48, 14, 8, 8);
         }
 
         var vp = new Rectangle(0, HeaderH, ClientSize.Width, ClientSize.Height - HeaderH);

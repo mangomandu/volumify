@@ -9,7 +9,7 @@ namespace Volumify;
 public sealed class CurveGraphPanel : Panel
 {
     private const int Pad = 12;
-    private static readonly Color Accent = Color.FromArgb(204, 120, 92); // Claude coral #CC785C
+    private static Color Accent => Theme.Accent; // shared, user-customizable
     private static readonly Font LabelFont = new("Segoe UI", 7.5f); // cached — was reallocated each repaint
 
     private float _p = 0.5f;

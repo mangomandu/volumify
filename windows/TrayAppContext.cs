@@ -33,6 +33,7 @@ public sealed class TrayAppContext : ApplicationContext
     private ToolStripMenuItem _startupItem = null!;
     private ToolStripMenuItem _overlayItem = null!;
     private ToolStripMenuItem _lyricsItem = null!;
+    private ToolStripMenuItem _keepItem = null!;
     private readonly List<ToolStripMenuItem> _presetItems = new();
     private readonly List<ToolStripMenuItem> _popupItems = new(); // "좁을 때 팝업" toggle mirrored in both menus
     private readonly System.Windows.Forms.Timer _syncTimer = new() { Interval = 200 }; // poll Spotify for external volume changes
@@ -40,6 +41,7 @@ public sealed class TrayAppContext : ApplicationContext
     public TrayAppContext()
     {
         Loc.Lang = Loc.FromSetting(_settings.Language);
+        if (_settings.AccentArgb != 0) Theme.SetAccent(Color.FromArgb(_settings.AccentArgb)); // custom accent before any window paints
 
         _model = new VolumeModel(_settings.P);
         _panel = new ControlPanelForm(_model, _presets);
@@ -97,6 +99,10 @@ public sealed class TrayAppContext : ApplicationContext
         };
         if (_settings.HasLyricsDockOffset)
             _lyricsForm.SetDockOffset(new Point(_settings.LyricsDockOffsetX, _settings.LyricsDockOffsetY));
+        _lyricsForm.SetKeepWhenMinimized(_settings.LyricsKeepWhenMinimized);
+
+        // Repaint every surface live when the accent color changes (the popup picks it up on its next show).
+        Theme.AccentChanged += () => { _panel.Invalidate(true); _overlay.Invalidate(true); _lyricsForm.Invalidate(); };
 
         // Reuse a saved Musixmatch token (token.get is rate-limited); persist a freshly minted one.
         LyricsProvider.InitToken(_settings.MusixmatchToken, tok =>
@@ -228,44 +234,7 @@ public sealed class TrayAppContext : ApplicationContext
         menu.Items.Add(_volLabel);
         menu.Items.Add(new ToolStripSeparator());
 
-        // --- the control panel (slider window) + where it sits ---
-        menu.Items.Add(new ToolStripMenuItem(Loc.T("볼륨 슬라이더 열기", "Open volume slider"), null, (_, _) => _panel.RequestShow()));
-
-        _dockItem = new ToolStripMenuItem(Loc.T("Spotify 창에 붙이기", "Dock to Spotify window"), null, (_, _) => ToggleDock())
-        {
-            Checked = _settings.DockToSpotify,
-        };
-        menu.Items.Add(_dockItem);
-        menu.Items.Add(new ToolStripMenuItem(Loc.T("   └ 붙는 위치 기본값으로", "   └ Reset dock position"), null, (_, _) => ResetDock()));
-
-        menu.Items.Add(new ToolStripSeparator());
-
-        // --- the overlay bar on Spotify's own slider ---
-        _overlayItem = new ToolStripMenuItem(Loc.T("Spotify 볼륨 슬라이더에 겹치기", "Overlay on Spotify's volume slider"), null, (_, _) => ToggleOverlay())
-        {
-            Checked = _settings.OverlayOnVolume,
-        };
-        menu.Items.Add(_overlayItem);
-
-        var overlayPopupItem = new ToolStripMenuItem(Loc.T("   └ 좁을 때 팝업 슬라이더", "   └ Pop-out slider when narrow"), null, (_, _) => ToggleOverlayPopup())
-        {
-            Checked = _settings.OverlayPopup,
-        };
-        _popupItems.Add(overlayPopupItem);
-        menu.Items.Add(overlayPopupItem);
-
-        menu.Items.Add(new ToolStripSeparator());
-
-        // --- floating lyrics window ---
-        _lyricsItem = new ToolStripMenuItem(Loc.T("가사 (Spotify 옆에)", "Lyrics (beside Spotify)"), null, (_, _) => ToggleLyrics())
-        {
-            Checked = _settings.LyricsEnabled,
-        };
-        menu.Items.Add(_lyricsItem);
-
-        menu.Items.Add(new ToolStripSeparator());
-
-        // --- curve shape ---
+        // --- primary controls ---
         var curve = new ToolStripMenuItem(Loc.T("곡선 세기", "Volume curve"));
         foreach (var pr in _presets)
         {
@@ -275,24 +244,65 @@ public sealed class TrayAppContext : ApplicationContext
         }
         menu.Items.Add(curve);
 
+        _lyricsItem = new ToolStripMenuItem(Loc.T("가사 창", "Lyrics window"), null, (_, _) => ToggleLyrics()) { Checked = _settings.LyricsEnabled };
+        menu.Items.Add(_lyricsItem);
+
+        _overlayItem = new ToolStripMenuItem(Loc.T("Spotify 볼륨에 겹치기", "Overlay Spotify's volume"), null, (_, _) => ToggleOverlay()) { Checked = _settings.OverlayOnVolume };
+        menu.Items.Add(_overlayItem);
+
+        menu.Items.Add(new ToolStripMenuItem(Loc.T("볼륨 슬라이더 열기", "Open volume slider"), null, (_, _) => _panel.RequestShow()));
+
         menu.Items.Add(new ToolStripSeparator());
 
-        _startupItem = new ToolStripMenuItem(Loc.T("Windows 시작 시 자동 실행", "Run at Windows startup"), null, (_, _) => ToggleStartup())
-        {
-            Checked = StartupManager.IsEnabled(),
-        };
-        menu.Items.Add(_startupItem);
+        // --- everything else tucked into Settings ---
+        var settings = new ToolStripMenuItem(Loc.T("설정", "Settings"));
+
+        _dockItem = new ToolStripMenuItem(Loc.T("패널을 Spotify 창에 붙이기", "Dock panel to Spotify"), null, (_, _) => ToggleDock()) { Checked = _settings.DockToSpotify };
+        settings.DropDownItems.Add(_dockItem);
+        settings.DropDownItems.Add(new ToolStripMenuItem(Loc.T("   └ 붙는 위치 기본값으로", "   └ Reset dock position"), null, (_, _) => ResetDock()));
+
+        var overlayPopupItem = new ToolStripMenuItem(Loc.T("오버레이 좁을 때 팝업", "Pop-out slider when narrow"), null, (_, _) => ToggleOverlayPopup()) { Checked = _settings.OverlayPopup };
+        _popupItems.Add(overlayPopupItem);
+        settings.DropDownItems.Add(overlayPopupItem);
+
+        _keepItem = new ToolStripMenuItem(Loc.T("최소화해도 가사 유지", "Keep lyrics when Spotify is minimized"), null, (_, _) => ToggleLyricsKeep()) { Checked = _settings.LyricsKeepWhenMinimized };
+        settings.DropDownItems.Add(_keepItem);
+
+        settings.DropDownItems.Add(new ToolStripSeparator());
+
+        settings.DropDownItems.Add(new ToolStripMenuItem(Loc.T("강조색 바꾸기…", "Change accent color…"), null, (_, _) => PickAccent()));
+
+        _startupItem = new ToolStripMenuItem(Loc.T("Windows 시작 시 자동 실행", "Run at Windows startup"), null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
+        settings.DropDownItems.Add(_startupItem);
 
         var langMenu = new ToolStripMenuItem(Loc.T("언어", "Language"));
         langMenu.DropDownItems.Add(new ToolStripMenuItem("한국어", null, (_, _) => ApplyLanguage(AppLang.Korean)) { Checked = Loc.Lang == AppLang.Korean });
         langMenu.DropDownItems.Add(new ToolStripMenuItem("English", null, (_, _) => ApplyLanguage(AppLang.English)) { Checked = Loc.Lang == AppLang.English });
-        menu.Items.Add(langMenu);
+        settings.DropDownItems.Add(langMenu);
+
+        menu.Items.Add(settings);
 
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem(Loc.T("ℹ Spotify 볼륨을 직접 조절합니다 (폰·기기 동기화)", "ℹ Controls Spotify's own volume (syncs to phone & devices)")) { Enabled = false });
         menu.Items.Add(new ToolStripMenuItem(Loc.T("종료", "Exit"), null, (_, _) => Exit()));
 
         return menu;
+    }
+
+    private void ToggleLyricsKeep()
+    {
+        _settings.LyricsKeepWhenMinimized = !_settings.LyricsKeepWhenMinimized;
+        _keepItem.Checked = _settings.LyricsKeepWhenMinimized;
+        _lyricsForm.SetKeepWhenMinimized(_settings.LyricsKeepWhenMinimized);
+        SettingsStore.Save(_settings);
+    }
+
+    private void PickAccent()
+    {
+        using var dlg = new ColorDialog { Color = Theme.Accent, FullOpen = true, AnyColor = true };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        Theme.SetAccent(dlg.Color);
+        _settings.AccentArgb = Theme.Accent.ToArgb();
+        SettingsStore.Save(_settings);
     }
 
     private void OnModelChanged()

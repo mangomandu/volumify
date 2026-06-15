@@ -5,7 +5,7 @@ namespace Volumify;
 /// <summary>A row of rounded "pill" buttons for picking a curve preset. Active pill = green.</summary>
 public sealed class PresetBar : Panel
 {
-    private static readonly Color Accent = Color.FromArgb(204, 120, 92); // Claude coral #CC785C
+    private static Color Accent => Theme.Accent; // shared, user-customizable
     private static readonly Font PillFont = new("Segoe UI", 8.5f, FontStyle.Bold); // cached — was reallocated each repaint
     private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 

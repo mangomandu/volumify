@@ -22,7 +22,7 @@ public sealed class SpotifyDock : IDisposable
     private uint _hookedPid;
     private IntPtr _hwnd;
     private uint _pid;
-    private bool _enabled, _dragging, _hasAnchor;
+    private bool _enabled, _dragging, _hasAnchor, _hideWhenAbsent;
     private Rectangle _lastSpotify;
     private Point? _offset;
 
@@ -38,6 +38,13 @@ public sealed class SpotifyDock : IDisposable
     }
 
     public void SetOffset(Point? offset) => _offset = offset;
+
+    /// <summary>When Spotify is minimized/closed: true = drop the window with it, false = keep it up.</summary>
+    public void SetHideWhenAbsent(bool hide)
+    {
+        _hideWhenAbsent = hide;
+        if (_enabled) PresenceTick(); // apply right away
+    }
 
     public void SetEnabled(bool on)
     {
@@ -61,8 +68,9 @@ public sealed class SpotifyDock : IDisposable
         }
     }
 
-    // Low-frequency: detect Spotify presence, (re)install the move hook, and show/hide the window with Spotify —
-    // it follows Spotify while visible and hides when Spotify is minimized/closed.
+    // Low-frequency: detect Spotify presence and (re)install the move hook. While Spotify is visible the window
+    // follows + z-orders just above it; when Spotify is minimized/closed it either stays up or drops with Spotify,
+    // per SetHideWhenAbsent (the "keep lyrics when minimized" option).
     private void PresenceTick()
     {
         if (!_enabled) return;
@@ -75,13 +83,14 @@ public sealed class SpotifyDock : IDisposable
         if (ok)
         {
             if (_hookedPid != _pid) InstallHook();
-            if (!_form.Visible) _form.Show();   // Spotify visible → show beside it
-            Reposition();
+            if (!_form.Visible) _form.Show();   // (re)appear next to Spotify
+            Reposition();                       // follow + z-order just above Spotify
         }
         else
         {
             UninstallHook(); _hasAnchor = false;
-            if (_form.Visible) _form.Hide();     // Spotify minimized/closed → hide with it
+            if (_hideWhenAbsent) { if (_form.Visible) _form.Hide(); } // option: drop with Spotify
+            else if (!_form.Visible) _form.Show();                    // option: keep the lyrics up
         }
     }
 

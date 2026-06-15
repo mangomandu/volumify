@@ -11,7 +11,7 @@ public sealed class VolumeBar : Control
 {
     private const int KnobR = 6; // knob is a 12px circle
 
-    private static readonly Color Accent = Color.FromArgb(204, 120, 92); // Claude coral #CC785C
+    private static Color Accent => Theme.Accent; // shared, user-customizable
 
     private int _pad = 14;
     private float _position;
