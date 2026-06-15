@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SpotifyLinearVolume</AssemblyName>
     <RootNamespace>SpotifyLinearVolume</RootNamespace>
-    <Version>0.2.5</Version>
+    <Version>0.2.6</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>appicon.ico</ApplicationIcon>
   </PropertyGroup>

@@ -100,7 +100,7 @@ The standalone `SpotifyLinearVolume.exe` lands in `windows\bin\Release\net8.0-wi
 
 ## 🧩 Tech
 
-C# / .NET 8 · WinForms (+ WPF for UI Automation) · [NAudio](https://github.com/naudio/NAudio) for the Windows mixer. **UI Automation** drives Spotify's native volume slider (the RangeValue pattern), reads it back for two‑way sync, and locates it for the overlay — local, ~1 ms per change, no Web API or OAuth, and it never patches the client. See [`windows/FEATURES.md`](windows/FEATURES.md) for design notes and the (hard‑won) overlay‑alignment findings.
+C# / .NET 8 · WinForms (+ WPF for UI Automation) · [NAudio](https://github.com/naudio/NAudio) for the Windows mixer. **UI Automation** drives Spotify's native volume slider (the RangeValue pattern), reads it back for two‑way sync, and locates it for the overlay — local, ~1 ms per change, no Web API or OAuth, and it never patches the client. See [`windows/FEATURES.md`](windows/FEATURES.md) for design notes, the (hard‑won) overlay‑alignment findings, and a write‑up on the performance fix — why a UI‑Automation overlay can make a Chromium app (Spotify) burn ~7% CPU, and how it was traced and fixed.
 
 ## 📄 License
 

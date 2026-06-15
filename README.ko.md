@@ -100,7 +100,7 @@ dotnet publish -c Release -r win-x64 --self-contained `
 
 ## 🧩 기술
 
-C# / .NET 8 · WinForms (+ UI 자동화용 WPF) · Windows 믹서용 [NAudio](https://github.com/naudio/NAudio). **UI 자동화**가 스포티파이 네이티브 볼륨 슬라이더(RangeValue 패턴)를 움직이고, 양방향 동기화를 위해 다시 읽고, 오버레이 위치를 잡아요 — 로컬에서 변경당 ~1 ms, Web API·OAuth 없이, 클라이언트도 안 건드려요. 설계 노트와 (고생해서 얻은) 오버레이 정렬 발견은 [`windows/FEATURES.md`](windows/FEATURES.md) 참고.
+C# / .NET 8 · WinForms (+ UI 자동화용 WPF) · Windows 믹서용 [NAudio](https://github.com/naudio/NAudio). **UI 자동화**가 스포티파이 네이티브 볼륨 슬라이더(RangeValue 패턴)를 움직이고, 양방향 동기화를 위해 다시 읽고, 오버레이 위치를 잡아요 — 로컬에서 변경당 ~1 ms, Web API·OAuth 없이, 클라이언트도 안 건드려요. 설계 노트, (고생해서 얻은) 오버레이 정렬 발견, 그리고 성능 픽스 정리(UI 자동화 오버레이가 어떻게 Chromium 앱(Spotify) CPU를 ~7% 태웠고 어떻게 추적·해결했는지)는 [`windows/FEATURES.md`](windows/FEATURES.md) 참고.
 
 ## 📄 라이선스
 
