@@ -16,9 +16,9 @@ namespace Volumify;
 /// </summary>
 public sealed class NowPlaying : IDisposable
 {
-    public sealed record TrackInfo(string Artist, string Title, string Album, long DurationMs)
+    public sealed record TrackInfo(string Artist, string Title, string Album, long DurationMs, string SpotifyId = "")
     {
-        public string Key => (Artist + "" + Title).ToLowerInvariant();
+        public string Key => (SpotifyId.Length > 0 ? "id:" + SpotifyId : Artist + "" + Title).ToLowerInvariant();
         public bool IsEmpty => Artist.Length == 0 && Title.Length == 0;
     }
 

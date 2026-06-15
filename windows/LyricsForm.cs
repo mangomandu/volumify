@@ -50,6 +50,7 @@ public sealed class LyricsForm : Form
 
     public event Action? CloseRequested;
     public event Action<Point>? DockOffsetChanged; // user dragged while docked → persist the new offset
+    public Func<CancellationToken, Task<string?>>? TrackIdProvider; // optional: Spotify track id → exact lyrics
 
     public void SetDockOffset(Point? offset) => _dock.SetOffset(offset);
     public void SetKeepWhenMinimized(bool keep) => _dock.SetHideWhenAbsent(!keep);
@@ -152,7 +153,15 @@ public sealed class LyricsForm : Form
         var cts = new CancellationTokenSource();
         _fetchCts = cts;
         LyricsResult res;
-        try { res = await LyricsProvider.GetAsync(track, cts.Token); }
+        try
+        {
+            if (TrackIdProvider != null)
+            {
+                var id = await TrackIdProvider(cts.Token);
+                if (!string.IsNullOrEmpty(id)) track = track with { SpotifyId = id }; // exact Spotify match
+            }
+            res = await LyricsProvider.GetAsync(track, cts.Token);
+        }
         catch { res = LyricsResult.None; }
         if (cts.IsCancellationRequested || IsDisposed || !ReferenceEquals(_fetchCts, cts)) return;
 

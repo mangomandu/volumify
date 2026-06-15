@@ -26,6 +26,8 @@ public sealed class AppSettings
     public bool LyricsKeepWhenMinimized { get; set; } = true; // keep the lyrics up when Spotify is minimized
     public int AccentArgb { get; set; } // 0 = use the default coral; else a custom accent color
     public string MusixmatchToken { get; set; } = ""; // minted once (token.get is rate-limited), reused across runs
+    public string SpotifyClientId { get; set; } = "";     // optional: user's Spotify app, for exact-lyrics login
+    public string SpotifyRefreshToken { get; set; } = ""; // optional: read-only "currently playing" refresh token
     public string Language { get; set; } = ""; // "ko" / "en"; empty = auto-detect from the OS on first run
 }
 

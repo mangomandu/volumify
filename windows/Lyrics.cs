@@ -216,6 +216,7 @@ public static class LyricsProvider
                 + "&q_artist=" + Enc(t.Artist)
                 + "&q_album=" + Enc(t.Album)
                 + (durSec > 0 ? "&q_duration=" + durSec + "&f_subtitle_length=" + durSec : "")
+                + (t.SpotifyId.Length > 0 ? "&track_spotify_id=" + Enc("spotify:track:" + t.SpotifyId) : "") // exact match = identical to Spotify
                 + "&usertoken=" + Enc(token);
         var json = await MxmGetAsync(url, ct);
         if (json == null) return LyricsResult.None;
@@ -336,7 +337,7 @@ public static class LyricsProvider
                 && TryBody(matcher, out var mBody)
                 && mBody.TryGetProperty("track", out var track) && track.ValueKind == JsonValueKind.Object)
             {
-                if (!MxmTrackMatches(track, t)) return (LyricsResult.None, false); // wrong song → don't show its lyrics
+                if (t.SpotifyId.Length == 0 && !MxmTrackMatches(track, t)) return (LyricsResult.None, false); // exact id is authoritative; else validate the fuzzy match
                 int Flag(string n) => track.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
                 if (Flag("instrumental") == 1) return (LyricsResult.Inst("musixmatch"), false); // definitively instrumental
                 // Confidently matched, but no lyrics of ANY kind → very likely instrumental even if the flag is missing

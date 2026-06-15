@@ -27,6 +27,7 @@ public sealed class TrayAppContext : ApplicationContext
     private readonly OverlayBarForm _overlay;
     private readonly NowPlaying _nowPlaying = new();
     private readonly LyricsForm _lyricsForm;
+    private readonly SpotifyAuth _spotifyAuth;
 
     private ToolStripMenuItem _volLabel = null!;
     private ToolStripMenuItem _dockItem = null!;
@@ -34,6 +35,7 @@ public sealed class TrayAppContext : ApplicationContext
     private ToolStripMenuItem _overlayItem = null!;
     private ToolStripMenuItem _lyricsItem = null!;
     private ToolStripMenuItem _keepItem = null!;
+    private ToolStripMenuItem _loginItem = null!;
     private readonly List<ToolStripMenuItem> _presetItems = new();
     private readonly List<ToolStripMenuItem> _popupItems = new(); // "좁을 때 팝업" toggle mirrored in both menus
     private readonly System.Windows.Forms.Timer _syncTimer = new() { Interval = 200 }; // poll Spotify for external volume changes
@@ -42,6 +44,14 @@ public sealed class TrayAppContext : ApplicationContext
     {
         Loc.Lang = Loc.FromSetting(_settings.Language);
         if (_settings.AccentArgb != 0) Theme.SetAccent(Color.FromArgb(_settings.AccentArgb)); // custom accent before any window paints
+
+        _spotifyAuth = new SpotifyAuth(_settings.SpotifyClientId, _settings.SpotifyRefreshToken);
+        _spotifyAuth.RefreshTokenChanged += () =>
+        {
+            _settings.SpotifyRefreshToken = _spotifyAuth.RefreshToken;
+            _settings.SpotifyClientId = _spotifyAuth.ClientId;
+            SettingsStore.Save(_settings);
+        };
 
         _model = new VolumeModel(_settings.P);
         _panel = new ControlPanelForm(_model, _presets);
@@ -100,6 +110,7 @@ public sealed class TrayAppContext : ApplicationContext
         if (_settings.HasLyricsDockOffset)
             _lyricsForm.SetDockOffset(new Point(_settings.LyricsDockOffsetX, _settings.LyricsDockOffsetY));
         _lyricsForm.SetKeepWhenMinimized(_settings.LyricsKeepWhenMinimized);
+        _lyricsForm.TrackIdProvider = ct => _spotifyAuth.IsLinked ? _spotifyAuth.GetCurrentTrackIdAsync(ct) : Task.FromResult<string?>(null);
 
         // Repaint every surface live when the accent color changes (the popup picks it up on its next show).
         Theme.AccentChanged += () => { _panel.Invalidate(true); _overlay.Invalidate(true); _lyricsForm.Invalidate(); };
@@ -276,6 +287,9 @@ public sealed class TrayAppContext : ApplicationContext
         accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("직접 선택… (색상코드 / 마우스)", "Custom… (hex / picker)"), null, (_, _) => PickAccent()));
         settings.DropDownItems.Add(accentMenu);
 
+        _loginItem = new ToolStripMenuItem(LoginLabel(), null, (_, _) => SpotifyLogin());
+        settings.DropDownItems.Add(_loginItem);
+
         _startupItem = new ToolStripMenuItem(Loc.T("Windows 시작 시 자동 실행", "Run at Windows startup"), null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
         settings.DropDownItems.Add(_startupItem);
 
@@ -312,6 +326,40 @@ public sealed class TrayAppContext : ApplicationContext
         Theme.SetAccent(c);
         _settings.AccentArgb = Theme.Accent.ToArgb();
         SettingsStore.Save(_settings);
+    }
+
+    private string LoginLabel() => _spotifyAuth.IsLinked
+        ? Loc.T("스포티파이 연결됨 ✓ (정확한 가사)", "Spotify linked ✓ (exact lyrics)")
+        : Loc.T("스포티파이 로그인 (정확한 가사)", "Log in to Spotify (exact lyrics)");
+
+    private void SpotifyLogin()
+    {
+        if (_spotifyAuth.IsLinked)
+        {
+            if (MessageBox.Show(Loc.T("스포티파이 연결을 해제할까요?", "Unlink Spotify?"), "Volumify", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            {
+                _spotifyAuth.Unlink();
+                _loginItem.Text = LoginLabel();
+            }
+            return;
+        }
+        using var dlg = new SpotifyLoginDialog(_spotifyAuth.ClientId);
+        if (dlg.ShowDialog() != DialogResult.OK || dlg.ClientId.Length == 0) return;
+        _spotifyAuth.SetClientId(dlg.ClientId);
+        _settings.SpotifyClientId = dlg.ClientId;
+        SettingsStore.Save(_settings);
+        _ = DoLoginAsync();
+    }
+
+    private async Task DoLoginAsync()
+    {
+        bool ok = false;
+        try { ok = await _spotifyAuth.LoginAsync(CancellationToken.None); } catch { }
+        _loginItem.Text = LoginLabel();
+        MessageBox.Show(
+            ok ? Loc.T("연결 완료! 이제 스포티파이랑 똑같은 가사가 나와요.", "Linked! Lyrics now match Spotify exactly.")
+               : Loc.T("로그인 실패 — Client ID와 Redirect URI를 확인해주세요.", "Login failed — check the Client ID and Redirect URI."),
+            "Volumify");
     }
 
     private void OnModelChanged()
