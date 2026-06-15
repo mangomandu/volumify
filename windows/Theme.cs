@@ -6,7 +6,7 @@ namespace Volumify;
 /// </summary>
 public static class Theme
 {
-    public static readonly Color DefaultAccent = Color.FromArgb(204, 120, 92); // Claude coral #CC785C
+    public static readonly Color DefaultAccent = Color.FromArgb(30, 215, 96); // Spotify green
 
     public static Color Accent { get; private set; } = DefaultAccent;
 

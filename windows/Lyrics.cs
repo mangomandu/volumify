@@ -52,7 +52,7 @@ public static class LyricsProvider
     // The "v2" segment is a cache version — bump it whenever match/parse logic changes so stale results
     // (e.g. a wrong song cached before match validation existed) are ignored instead of served forever.
     private static readonly string DiskCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v4");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v5");
 
     // Musixmatch needs a "user token". token.get is heavily rate-limited (a few mints trip a captcha),
     // so we mint ONE and reuse it — persisted across launches via InitToken. null = unknown,
@@ -147,27 +147,28 @@ public static class LyricsProvider
         var mxm = await Safe(TryMusixmatchAsync(t, ct));
         if (mxm.Synced || (mxm.Instrumental && !mxm.Guess)) return mxm;
 
-        // No synced yet → race the Korean synced services (Bugs + Genie license lyrics directly, so they cover
-        // the K-pop / Korean long tail Musixmatch misses; fast), Genius (fast, plain) and a hard-capped LRCLIB
-        // (synced but currently very slow). First synced wins; else take a plain once both Korean sources have
-        // settled — never wait on slow LRCLIB.
+        // No synced from the macro → race the fast synced sources: Bugs + Genie (Korean services license lyrics
+        // directly, covering the K-pop / Korean long tail), and a Musixmatch track.search (recovers the synced cut
+        // the matcher missed). Plus Genius (fast, plain) and a hard-capped LRCLIB. First synced wins; else take a
+        // plain once the fast synced sources have settled — never wait on slow LRCLIB.
         var bugs = Safe(TryBugsAsync(t, ct));
         var genie = Safe(TryGenieAsync(t, ct));
+        var mxmSearch = Safe(TryMxmSearchAsync(t, ct));
         var gen = Safe(TryGeniusAsync(t, ct));
         var lrc = CappedLrclibAsync(t, ct, 2000);
 
         LyricsResult plain = (mxm.Found && !mxm.Instrumental) ? mxm : LyricsResult.None;
-        int koreanLeft = 2; // Bugs + Genie — the fast synced sources we prefer over plain
-        var pending = new List<Task<LyricsResult>> { bugs, genie, gen, lrc };
+        int syncedLeft = 3; // Bugs + Genie + Musixmatch-search — the fast synced sources we prefer over plain
+        var pending = new List<Task<LyricsResult>> { bugs, genie, mxmSearch, gen, lrc };
         while (pending.Count > 0)
         {
             var done = await Task.WhenAny(pending);
             pending.Remove(done);
             var r = await done;
-            if (r.Synced) return r;                                           // Bugs/Genie (or a fast LRCLIB) synced wins
-            if (ReferenceEquals(done, bugs) || ReferenceEquals(done, genie)) koreanLeft--;
+            if (r.Synced) return r;                                                                   // any synced source wins
+            if (ReferenceEquals(done, bugs) || ReferenceEquals(done, genie) || ReferenceEquals(done, mxmSearch)) syncedLeft--;
             if (r.Found && !r.Instrumental && !plain.Found) plain = r;
-            if (koreanLeft == 0 && plain.Found) return plain;                 // both Korean sources done, no synced → use plain
+            if (syncedLeft == 0 && plain.Found) return plain;                                          // fast synced done, no synced → use plain
         }
         if (plain.Found) return plain;
         return mxm.Instrumental ? mxm : LyricsResult.None; // nobody had lyrics → if Musixmatch matched with none, it's probably instrumental
@@ -221,30 +222,17 @@ public static class LyricsProvider
 
         var (result, authFailed) = ParseMusixmatch(json, t);
         if (authFailed && _mxmToken == token) _mxmToken = null; // invalidate only the token THIS request used → re-mint next lookup
-        if (result.Synced) return result;
-
-        // The matcher sometimes locks onto an instrumental *version* of a vocal song ("Cold (Instrumental)") and
-        // so reports no lyrics. When that happens, search for the vocal version directly and pull its synced lyrics.
-        if (!LooksInstrumental(t.Title) && MxmMatchedInstrumentalVersion(json))
-        {
-            var vocal = await TryMxmSearchSyncedAsync(t, token, ct);
-            if (vocal.Synced) return vocal;
-        }
         return result;
     }
 
-    private static bool MxmMatchedInstrumentalVersion(string json)
+    // track.search recovers synced lyrics the matcher missed — wrong / instrumental / dual-language-title versions
+    // (e.g. "Cold (Instrumental)", or DAY6's "흘러가는 바람처럼 Like a Flowing Wind"). Runs as a parallel racer.
+    private static async Task<LyricsResult> TryMxmSearchAsync(NowPlaying.TrackInfo t, CancellationToken ct)
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var macro = doc.RootElement.GetProperty("message").GetProperty("body").GetProperty("macro_calls");
-            if (macro.TryGetProperty("matcher.track.get", out var m) && TryBody(m, out var b)
-                && b.TryGetProperty("track", out var tr) && tr.TryGetProperty("track_name", out var tn) && tn.ValueKind == JsonValueKind.String)
-                return LooksInstrumental(tn.GetString() ?? "");
-        }
-        catch { }
-        return false;
+        if (LooksInstrumental(t.Title)) return LyricsResult.None;
+        var token = await GetMxmTokenAsync(ct);
+        if (string.IsNullOrEmpty(token)) return LyricsResult.None;
+        return await TryMxmSearchSyncedAsync(t, token, ct);
     }
 
     // The matcher missed the vocal cut → find a version that has subtitles via track.search, then fetch them by id.

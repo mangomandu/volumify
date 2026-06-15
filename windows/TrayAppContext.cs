@@ -271,8 +271,8 @@ public sealed class TrayAppContext : ApplicationContext
         settings.DropDownItems.Add(new ToolStripSeparator());
 
         var accentMenu = new ToolStripMenuItem(Loc.T("강조색", "Accent color"));
-        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("코랄 (기본)", "Coral (default)"), null, (_, _) => SetAccentPreset(Theme.DefaultAccent)));
-        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("스포티파이 그린", "Spotify green"), null, (_, _) => SetAccentPreset(Color.FromArgb(30, 215, 96))));
+        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("스포티파이 그린 (기본)", "Spotify green (default)"), null, (_, _) => SetAccentPreset(Theme.DefaultAccent)));
+        accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("코랄", "Coral"), null, (_, _) => SetAccentPreset(Color.FromArgb(204, 120, 92))));
         accentMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("직접 선택… (색상코드 / 마우스)", "Custom… (hex / picker)"), null, (_, _) => PickAccent()));
         settings.DropDownItems.Add(accentMenu);
 
