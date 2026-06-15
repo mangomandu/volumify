@@ -52,7 +52,7 @@ public static class LyricsProvider
     // The "v2" segment is a cache version — bump it whenever match/parse logic changes so stale results
     // (e.g. a wrong song cached before match validation existed) are ignored instead of served forever.
     private static readonly string DiskCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v3");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v4");
 
     // Musixmatch needs a "user token". token.get is heavily rate-limited (a few mints trip a captcha),
     // so we mint ONE and reuse it — persisted across launches via InitToken. null = unknown,
