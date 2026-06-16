@@ -13,10 +13,10 @@ public sealed class TrayAppContext : ApplicationContext
     // don't offer it.
     private readonly Preset[] _presets =
     {
-        new("크게", "Loud", 0.3f),         // loud-early (closest to YouTube's amplitude-linear slider)
-        new("고름", "Even", 0.4f),         // perceptually linear — felt loudness ∝ slider (recommended)
-        new("살짝 쏠림", "Slight ramp", 0.6f),
-        new("스포티파이 디폴트", "Spotify default", 1.0f),
+        new("리니어", "Linear", 0.25f),     // = web YouTube — amplitude-linear (the real "linear")
+        new("고름", "Even", 0.42f),         // perceptually even — loudness ∝ slider (recommended)
+        new("디스코드", "Discord", -50f),   // = iPhone/Discord — logarithmic dB audio taper (50 dB)
+        new("스포티파이", "Spotify", 1.0f), // Spotify's raw top-heavy curve
     };
 
     private readonly AppSettings _settings = SettingsStore.Load();

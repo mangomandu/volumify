@@ -29,19 +29,11 @@ public static class Loc
 }
 
 /// <summary>
-/// A curve preset: a localized word label plus the exponent <c>p</c> (gain = position^p). The menus
-/// show "&lt;word&gt; (p)"; the control panel's pill shows just the number.
+/// A curve preset: a localized name plus the curve code <c>p</c> (see <see cref="VolumeCurve"/> —
+/// p&gt;0 is a power law, p&lt;0 a log/dB taper). Both the tray menu and the panel pill show the name.
 /// </summary>
 public sealed record Preset(string Ko, string En, float P)
 {
-    public string Label => $"{Loc.T(Ko, En)} ({P:0.0})";
-    public string Number => $"{P:0.0}";
-    // Short, plain-language label for the panel pills — no exponent jargon.
-    public string Pill => P switch
-    {
-        <= 0.35f => Loc.T("크게", "Loud"),
-        <= 0.50f => Loc.T("고름", "Even"),
-        <= 0.80f => Loc.T("살짝", "Slight"),
-        _ => Loc.T("기본", "Default"),
-    };
+    public string Label => Loc.T(Ko, En);
+    public string Pill => Loc.T(Ko, En);
 }

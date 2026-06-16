@@ -5,7 +5,7 @@ namespace Volumify;
 
 public sealed class AppSettings
 {
-    public float P { get; set; } = 0.4f; // "고름/Even" — perceived loudness ≈ slider; lower = flatter, 1.0 = Spotify's raw top-heavy
+    public float P { get; set; } = 0.42f; // "고름/Even" — perceived loudness ∝ slider (recommended). p<0 = log taper (iPhone/Discord)
     public bool DockToSpotify { get; set; }
     public bool HasDockOffset { get; set; }
     public int DockOffsetX { get; set; }

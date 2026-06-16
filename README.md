@@ -50,12 +50,14 @@ Spotify's built‑in curve is **top‑heavy** (≈ `x⁴`): park the slider at t
 
 <div align="center"><img src="assets/curve.png" width="640" alt="A power curve flattening Spotify's top-heavy response so the whole slider becomes usable"></div>
 
-| preset | `p` | feel |
-|--------|----:|------|
-| **크게** · *Loud* | 0.3 | loudest for a given slider spot — loud early (≈ YouTube's raw linear feel) |
-| **고름** · *Even* | 0.4 | perceived loudness ≈ slider position (**recommended**) |
-| **살짝 쏠림** · *Slight ramp* | 0.6 | a little top‑heavy |
-| **스포티파이 디폴트** · *Spotify default* | 1.0 | Spotify's raw top‑heavy feel |
+Each preset reproduces a curve you already know — the maths is exact, not "close":
+
+| preset | matches | feel |
+|--------|---------|------|
+| **리니어** · *Linear* | **web YouTube** — amplitude‑linear (the *real* "linear") | loud early; touchy near the bottom |
+| **고름** · *Even* (**recommended**) | the perceptual sweet spot | perceived loudness tracks the slider evenly |
+| **디스코드** · *Discord* | **Discord / iPhone** — a logarithmic dB "audio taper" | even in equal‑dB steps; fine control down low |
+| **스포티파이** · *Spotify* | Spotify's own raw curve | top‑heavy — the problem Volumify fixes |
 
 > Starting points — tune to taste. Because the value it sets is Spotify's *real* volume, nothing inside Spotify is touched and the level follows you to every device.
 
@@ -84,7 +86,7 @@ Spotify's own lyrics take over the whole window — they hide your playlist, and
 
 ## 🚀 Features
 
-- 🎚️ **Tunable perceptual curve** — presets from *크게 / Loud (0.3)* through *고름 / Even (0.4, recommended — perceived loudness tracks the slider)* to *스포티파이 디폴트 / Spotify default (1.0)*, with a **live curve graph**.
+- 🎚️ **Tunable perceptual curve** — presets that *exactly* reproduce **web YouTube** (Linear), the **perceptual** sweet spot (Even, recommended), **Discord / iPhone**'s logarithmic dB taper, and **Spotify**'s raw curve — with a **live curve graph**.
 - 🎤 **Floating synced lyrics** — a top‑of‑everything window that **stays up while you browse**, with click‑to‑seek, album‑art tint, a pin + playback controls, and the *exact* words from Musixmatch (the catalogue Spotify licenses). [More ↑](#-lyrics-that-follow-along)
 - 🔁 **Two‑way sync** — move Spotify's own slider (or a media key, or your phone) and Volumify follows; move Volumify and Spotify follows. Everything stays in step.
 - 📱 **Syncs to every device** — it moves Spotify's own volume, so your phone and Connect speakers come along (no separate OS‑only gain).

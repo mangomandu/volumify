@@ -41,7 +41,7 @@ public sealed class VolumeModel : IDisposable
 
     public VolumeModel(float initialP)
     {
-        P = float.IsFinite(initialP) && initialP > 0f ? initialP : 1f;
+        P = float.IsFinite(initialP) && initialP != 0f ? initialP : 1f; // p<0 = log taper (see VolumeCurve)
         var g = _controller.GetGain();
         if (g.HasValue)
         {
@@ -66,9 +66,9 @@ public sealed class VolumeModel : IDisposable
 
     public void SetP(float p)
     {
-        // Guard against non-finite / <= 0 p so the stored P (read directly by the graph painter)
-        // can never produce NaN/Infinity points.
-        p = float.IsFinite(p) && p > 0f ? p : 1f;
+        // Guard against non-finite / zero p (which would break the curve math). Negative p is valid —
+        // it's the log-taper encoding (see VolumeCurve).
+        p = float.IsFinite(p) && p != 0f ? p : 1f;
 
         // Keep the resulting gain continuous so the volume doesn't jump when the curve strength
         // changes — only the shape (and where the marker sits) moves.
