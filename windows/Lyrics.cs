@@ -52,7 +52,7 @@ public static class LyricsProvider
     // The "v2" segment is a cache version — bump it whenever match/parse logic changes so stale results
     // (e.g. a wrong song cached before match validation existed) are ignored instead of served forever.
     private static readonly string DiskCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v5");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Volumify", "lyrics", "v6");
 
     // Musixmatch needs a "user token". token.get is heavily rate-limited (a few mints trip a captcha),
     // so we mint ONE and reuse it — persisted across launches via InitToken. null = unknown,
@@ -133,6 +133,32 @@ public static class LyricsProvider
         ulong h = 14695981039346656037UL;            // FNV-1a 64-bit → stable filename across runs (no GetHashCode)
         foreach (char c in s) { h ^= c; h *= 1099511628211UL; }
         return h.ToString("x16");
+    }
+
+    /// <summary>Keep the disk cache from growing forever: drop superseded version folders + cap the current one.</summary>
+    public static void CleanCache()
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var root = Directory.GetParent(DiskCacheDir)?.FullName; // …\Volumify\lyrics
+                if (root != null && Directory.Exists(root))
+                    foreach (var dir in Directory.GetDirectories(root))
+                        if (!string.Equals(dir, DiskCacheDir, StringComparison.OrdinalIgnoreCase))
+                            try { Directory.Delete(dir, true); } catch { } // old cache versions
+
+                if (Directory.Exists(DiskCacheDir))
+                {
+                    var files = new DirectoryInfo(DiskCacheDir).GetFiles("*.json");
+                    const int max = 3000; // a few MB; drop the oldest beyond this
+                    if (files.Length > max)
+                        foreach (var f in files.OrderBy(f => f.LastWriteTimeUtc).Take(files.Length - max))
+                            try { f.Delete(); } catch { }
+                }
+            }
+            catch { }
+        });
     }
 
     private static async Task<LyricsResult> FetchAsync(NowPlaying.TrackInfo t, CancellationToken ct)

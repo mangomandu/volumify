@@ -51,6 +51,7 @@ public sealed class LyricsForm : Form
     public event Action? CloseRequested;
     public event Action<Point>? DockOffsetChanged; // user dragged while docked → persist the new offset
     public Func<string, long, CancellationToken, Task<string?>>? TrackIdProvider; // optional: (title, durationMs, ct) → exact Spotify track id
+    public Func<CancellationToken, Task<NowPlaying.TrackInfo?>>? NextTrackProvider; // optional: next queued track → prefetch its lyrics
 
     public void SetDockOffset(Point? offset) => _dock.SetOffset(offset);
     public void SetKeepWhenMinimized(bool keep) => _dock.SetHideWhenAbsent(!keep);
@@ -172,6 +173,19 @@ public sealed class LyricsForm : Form
                : "";
         _canSearch = (!res.Found && !res.Instrumental) || (res.Instrumental && res.Guess); // missing, or a *guessed* instrumental
         Invalidate();
+
+        // Prefetch the next queued track's lyrics so the next change is near-instant (like Spotify prefetches).
+        if (NextTrackProvider != null) _ = PrefetchNextAsync();
+    }
+
+    private async Task PrefetchNextAsync()
+    {
+        try
+        {
+            var next = await NextTrackProvider!(CancellationToken.None);
+            if (next != null && !next.IsEmpty) _ = LyricsProvider.GetAsync(next, CancellationToken.None); // fetch + cache in the background
+        }
+        catch { }
     }
 
     // ----- tick: advance the synced highlight -----

@@ -18,7 +18,7 @@ public sealed class SpotifyAuth
 {
     private const int Port = 8888;
     public const string RedirectUri = "http://127.0.0.1:8888/callback";
-    private const string Scope = "user-read-currently-playing";
+    private const string Scope = "user-read-currently-playing user-read-playback-state"; // playback-state = read the queue (prefetch)
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
@@ -109,6 +109,33 @@ public sealed class SpotifyAuth
             if (attempt == 0) { try { await Task.Delay(700, ct); } catch { return null; } } // API behind SMTC → wait + retry
         }
         return null; // API still disagrees → let the fuzzy pipeline handle this track instead of showing wrong lyrics
+    }
+
+    /// <summary>The next track in the play queue (for prefetching its lyrics), or empty id.</summary>
+    public async Task<(string? id, string title, string artist, long durMs)> GetNextTrackAsync(CancellationToken ct)
+    {
+        var token = await EnsureAccessAsync(ct);
+        if (token == null) return (null, "", "", 0);
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.spotify.com/v1/me/player/queue");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await Http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) return (null, "", "", 0);
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            if (doc.RootElement.TryGetProperty("queue", out var q) && q.ValueKind == JsonValueKind.Array && q.GetArrayLength() > 0)
+            {
+                var item = q[0];
+                string id = item.TryGetProperty("id", out var i) && i.ValueKind == JsonValueKind.String ? i.GetString()! : "";
+                string title = item.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()! : "";
+                long dur = item.TryGetProperty("duration_ms", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt64() : 0;
+                string artist = item.TryGetProperty("artists", out var arts) && arts.ValueKind == JsonValueKind.Array && arts.GetArrayLength() > 0
+                    && arts[0].TryGetProperty("name", out var an) && an.ValueKind == JsonValueKind.String ? an.GetString()! : "";
+                return (id.Length > 0 ? id : null, title, artist, dur);
+            }
+        }
+        catch { }
+        return (null, "", "", 0);
     }
 
     private async Task<(string? id, string? name, long durMs)> FetchCurrentAsync(CancellationToken ct)

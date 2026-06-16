@@ -111,9 +111,17 @@ public sealed class TrayAppContext : ApplicationContext
             _lyricsForm.SetDockOffset(new Point(_settings.LyricsDockOffsetX, _settings.LyricsDockOffsetY));
         _lyricsForm.SetKeepWhenMinimized(_settings.LyricsKeepWhenMinimized);
         _lyricsForm.TrackIdProvider = (title, dur, ct) => _spotifyAuth.IsLinked ? _spotifyAuth.GetCurrentTrackIdAsync(title, dur, ct) : Task.FromResult<string?>(null);
+        _lyricsForm.NextTrackProvider = async ct =>
+        {
+            if (!_spotifyAuth.IsLinked) return null;
+            var (id, title, artist, dur) = await _spotifyAuth.GetNextTrackAsync(ct);
+            return id == null ? null : new NowPlaying.TrackInfo(artist, title, "", dur, id);
+        };
 
         // Repaint every surface live when the accent color changes (the popup picks it up on its next show).
         Theme.AccentChanged += () => { _panel.Invalidate(true); _overlay.Invalidate(true); _lyricsForm.Invalidate(); };
+
+        LyricsProvider.CleanCache(); // drop superseded cache versions + cap size (background, best-effort)
 
         // Reuse a saved Musixmatch token (token.get is rate-limited); persist a freshly minted one.
         LyricsProvider.InitToken(_settings.MusixmatchToken, tok =>
@@ -336,11 +344,11 @@ public sealed class TrayAppContext : ApplicationContext
     {
         if (_spotifyAuth.IsLinked)
         {
-            if (MessageBox.Show(Loc.T("스포티파이 연결을 해제할까요?", "Unlink Spotify?"), "Volumify", MessageBoxButtons.YesNo) == DialogResult.Yes)
-            {
-                _spotifyAuth.Unlink();
-                _loginItem.Text = LoginLabel();
-            }
+            var r = MessageBox.Show(
+                Loc.T("이미 연결됨.\n\n예 = 다시 로그인 (권한 갱신)\n아니오 = 연결 해제", "Already linked.\n\nYes = re-login (refresh permissions)\nNo = unlink"),
+                "Volumify", MessageBoxButtons.YesNoCancel);
+            if (r == DialogResult.No) { _spotifyAuth.Unlink(); _loginItem.Text = LoginLabel(); }
+            else if (r == DialogResult.Yes) _ = DoLoginAsync(); // re-authorize with the current scopes (saved client id)
             return;
         }
         using var dlg = new SpotifyLoginDialog(_spotifyAuth.ClientId);
