@@ -403,7 +403,7 @@ public sealed class LyricsForm : Form
         using var b = new SolidBrush(icol);
         var st = g.Save();
         g.TranslateTransform(box.X + box.Width / 2f, box.Y + box.Height / 2f);
-        g.RotateTransform(180f); // E718 points up by default \u2192 flip it to point down (tweak this angle if it ends up tilted)
+        g.RotateTransform(270f); // E718 points up by default \u2192 flip it to point down (tweak this angle if it ends up tilted)
         g.DrawString("\ue718", IconFont, b, new RectangleF(-box.Width / 2f, -box.Height / 2f, box.Width, box.Height), CenterFmt);
         g.Restore(st);
     }
