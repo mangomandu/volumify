@@ -385,7 +385,7 @@ public sealed class LyricsForm : Form
     private RectangleF PinBox() => new(ClientSize.Width - 57, 7, 19, 23);
     private RectangleF PinHit() => RectangleF.Inflate(PinBox(), 6, 5);
 
-    // Pin toggle: a downward-pointing pushpin (dome cap + needle) on a soft "active" chip when pinned/hovered.
+    // Pin toggle: the crisp Segoe MDL2 pushpin glyph, rotated to point DOWN, on a soft "active" chip.
     private void DrawPin(Graphics g, RectangleF box, bool pinned, bool hover)
     {
         if (pinned || hover)
@@ -399,13 +399,13 @@ public sealed class LyricsForm : Form
             g.FillPath(cb, cp);
         }
 
-        float cx = box.X + box.Width / 2f;
-        float headRx = box.Width * 0.30f, headRy = box.Height * 0.165f, headCy = box.Y + box.Height * 0.32f;
-        float needHalf = box.Width * 0.12f, needTop = headCy + headRy * 0.35f, tipY = box.Y + box.Height * 0.90f;
-        Color icol = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(hover ? 225 : 175, 178, 174, 168);
+        Color icol = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(hover ? 225 : 170, 178, 174, 168);
         using var b = new SolidBrush(icol);
-        g.FillPolygon(b, new[] { new PointF(cx - needHalf, needTop), new PointF(cx + needHalf, needTop), new PointF(cx, tipY) }); // needle \u2193
-        g.FillEllipse(b, cx - headRx, headCy - headRy, headRx * 2, headRy * 2);                                                  // dome cap on top
+        var st = g.Save();
+        g.TranslateTransform(box.X + box.Width / 2f, box.Y + box.Height / 2f);
+        g.RotateTransform(180f); // E718 points up by default \u2192 flip it to point down (tweak this angle if it ends up tilted)
+        g.DrawString("\ue718", IconFont, b, new RectangleF(-box.Width / 2f, -box.Height / 2f, box.Width, box.Height), CenterFmt);
+        g.Restore(st);
     }
 
     // Transport bar (prev / play-pause / next), shown only while pinned — Spotify may be minimized then.
