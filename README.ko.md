@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/thumbnail.png" alt="Volumify — 스포티파이 볼륨 곡선과 떠 있는 실시간 가사" width="860">
+<img src="assets/thumbnail.ko.png" alt="Volumify — 스포티파이 볼륨 곡선과 떠 있는 실시간 가사" width="860">
 
 <br>
 
