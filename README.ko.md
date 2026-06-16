@@ -8,13 +8,14 @@
 
 <br>
 
-[![최신 릴리스 다운로드](https://img.shields.io/github/v/release/mangomandu/volumify?label=Download%20.exe&logo=github&color=1ed760)](https://github.com/mangomandu/volumify/releases/latest)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](#)
 [![무손실 & 업데이트 안전](https://img.shields.io/badge/Spotify-lossless%20%26%20update%20safe-1ed760?logo=spotify&logoColor=white)](#-안전한-설계)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1ed760)](LICENSE)
 
-### [⬇️ 최신 `.exe` 다운로드](https://github.com/mangomandu/volumify/releases/latest) &nbsp;·&nbsp; 설치 없이 바로 실행
+[![최신 Volumify.exe 다운로드](https://img.shields.io/github/v/release/mangomandu/volumify?style=for-the-badge&label=Download%20Volumify&color=1ed760&logo=github&logoColor=white)](https://github.com/mangomandu/volumify/releases/latest)
+
+**⬇️ 설치 없이 — 최신 `.exe` 받아서 바로 실행.**
 
 </div>
 

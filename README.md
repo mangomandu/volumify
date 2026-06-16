@@ -8,13 +8,14 @@
 
 <br>
 
-[![Download latest release](https://img.shields.io/github/v/release/mangomandu/volumify?label=Download%20.exe&logo=github&color=1ed760)](https://github.com/mangomandu/volumify/releases/latest)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](#)
 [![Lossless & auto‑update safe](https://img.shields.io/badge/Spotify-lossless%20%26%20update%20safe-1ed760?logo=spotify&logoColor=white)](#-safe-by-design)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1ed760)](LICENSE)
 
-### [⬇️ Download the latest `.exe`](https://github.com/mangomandu/volumify/releases/latest) &nbsp;·&nbsp; no install, just run
+[![Download the latest Volumify.exe](https://img.shields.io/github/v/release/mangomandu/volumify?style=for-the-badge&label=Download%20Volumify&color=1ed760&logo=github&logoColor=white)](https://github.com/mangomandu/volumify/releases/latest)
+
+**⬇️ no install — just grab the latest `.exe` and run.**
 
 </div>
 
