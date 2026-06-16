@@ -24,6 +24,8 @@ public sealed class LyricsForm : Form
     private static readonly Font ArtistFont = new("Segoe UI", 8.5f);
     private static readonly Font StatusFont = new("Segoe UI", 11f);
     private static readonly Font EmojiFont = new("Segoe UI Emoji", 30f);
+    private static readonly Font IconFont = new("Segoe MDL2 Assets", 11f);      // pin + prev/next glyphs
+    private static readonly Font PlayGlyphFont = new("Segoe MDL2 Assets", 10f); // play/pause inside the disc
     private static readonly StringFormat WrapFmt = new() { FormatFlags = 0 };
     private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
@@ -384,31 +386,22 @@ public sealed class LyricsForm : Form
     private RectangleF PinBox() => new(ClientSize.Width - 57, 7, 19, 23);
     private RectangleF PinHit() => RectangleF.Inflate(PinBox(), 6, 5);
 
-    // A thumbtack: solid & bright when pinned (kept up), dim hollow outline when not (drops with Spotify).
+    // Pin toggle: a Segoe MDL2 pushpin glyph riding a soft "active" chip (chip shows when pinned or hovered).
     private void DrawPin(Graphics g, RectangleF box, bool pinned, bool hover)
     {
-        float cx = box.X + box.Width / 2f;
-        float capW = box.Width * 0.62f, capH = box.Height * 0.24f, rr = capH * 0.45f;
-        float capTop = box.Y + box.Height * 0.12f, capBot = capTop + capH;
-        float capL = cx - capW / 2f, capR = cx + capW / 2f;
-        float needW = box.Width * 0.20f, nL = cx - needW / 2f, nR = cx + needW / 2f;
-        float tipY = box.Y + box.Height * 0.95f;
-
-        using var path = new GraphicsPath();
-        path.AddArc(capL, capTop, 2 * rr, 2 * rr, 180, 90);         // cap: rounded top-left
-        path.AddArc(capR - 2 * rr, capTop, 2 * rr, 2 * rr, 270, 90); //      rounded top-right
-        path.AddLine(capR, capTop + rr, capR, capBot);              // right edge of the cap
-        path.AddLine(capR, capBot, nR, capBot);                     // shoulder in to the needle
-        path.AddLine(nR, capBot, cx, tipY);                         // needle → point
-        path.AddLine(cx, tipY, nL, capBot);                         // point → needle
-        path.AddLine(nL, capBot, capL, capBot);                     // shoulder out
-        path.AddLine(capL, capBot, capL, capTop + rr);              // left edge of the cap
-        path.CloseFigure();
-
-        Color baseC = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(150, 146, 140);
-        var c = Color.FromArgb(hover ? 255 : pinned ? 245 : 180, baseC);
-        if (pinned) { using var b = new SolidBrush(c); g.FillPath(b, path); }
-        else { using var pen = new Pen(c, 1.5f) { LineJoin = LineJoin.Round }; g.DrawPath(pen, path); }
+        if (pinned || hover)
+        {
+            const float cs = 22f;
+            var chip = new RectangleF(box.X + box.Width / 2f - cs / 2f, box.Y + box.Height / 2f - cs / 2f, cs, cs);
+            Color chipC = pinned ? (AlbumMode ? Color.FromArgb(48, 255, 255, 255) : Color.FromArgb(56, Accent))
+                                 : Color.FromArgb(30, 255, 255, 255);
+            using var cb = new SolidBrush(chipC);
+            using var cp = RoundedRect(chip, 6f);
+            g.FillPath(cb, cp);
+        }
+        Color icol = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(hover ? 225 : 170, 178, 174, 168);
+        using var b = new SolidBrush(icol);
+        g.DrawString("\uE718", IconFont, b, box, CenterFmt); // E718 = pushpin
     }
 
     // Transport bar (prev / play-pause / next), shown only while pinned — Spotify may be minimized then.
@@ -421,42 +414,29 @@ public sealed class LyricsForm : Form
         return (R(cx - gap), R(cx), R(cx + gap));
     }
 
-    private Color TransColor(bool hover, bool center)
-    {
-        if (hover) return AlbumMode ? Color.White : Accent;
-        return Color.FromArgb(center ? 240 : 205, AlbumMode ? Color.White : Color.FromArgb(228, 225, 219));
-    }
-
     private void DrawTransport(Graphics g)
     {
         var (pv, pl, nx) = TransportRects();
         float top = ClientSize.Height - FooterH;
-        using (var sep = new Pen(Color.FromArgb(28, 255, 255, 255)))
-            g.DrawLine(sep, 16, top, ClientSize.Width - 16, top);
+        using (var sep = new Pen(Color.FromArgb(26, 255, 255, 255)))
+            g.DrawLine(sep, 18, top, ClientSize.Width - 18, top);
 
-        using (var b = new SolidBrush(TransColor(_transHover == 1, false))) // previous |◀
-        {
-            float cx = pv.X + pv.Width / 2f, cy = pv.Y + pv.Height / 2f, hh = pv.Height * 0.22f;
-            g.FillRectangle(b, cx - 8f, cy - hh, 2.2f, 2 * hh);
-            g.FillPolygon(b, new[] { new PointF(cx + 6f, cy - hh), new PointF(cx + 6f, cy + hh), new PointF(cx - 4f, cy) });
-        }
-        using (var b = new SolidBrush(TransColor(_transHover == 2, true))) // play ▶ / pause ⏸ (center)
-        {
-            float cx = pl.X + pl.Width / 2f, cy = pl.Y + pl.Height / 2f, hh = pl.Height * 0.27f;
-            if (_np.IsPlaying)
-            {
-                const float bw = 3.2f, gp = 3.2f;
-                g.FillRectangle(b, cx - gp / 2f - bw, cy - hh, bw, 2 * hh);
-                g.FillRectangle(b, cx + gp / 2f, cy - hh, bw, 2 * hh);
-            }
-            else g.FillPolygon(b, new[] { new PointF(cx - 5f, cy - hh), new PointF(cx - 5f, cy + hh), new PointF(cx + 7f, cy) });
-        }
-        using (var b = new SolidBrush(TransColor(_transHover == 3, false))) // next ▶|
-        {
-            float cx = nx.X + nx.Width / 2f, cy = nx.Y + nx.Height / 2f, hh = nx.Height * 0.22f;
-            g.FillPolygon(b, new[] { new PointF(cx - 6f, cy - hh), new PointF(cx - 6f, cy + hh), new PointF(cx + 4f, cy) });
-            g.FillRectangle(b, cx + 6f, cy - hh, 2.2f, 2 * hh);
-        }
+        DrawGlyphBtn(g, "\uE892", pv, _transHover == 1); // previous
+        DrawGlyphBtn(g, "\uE893", nx, _transHover == 3); // next
+
+        // center: filled accent disc with a knocked-out play/pause glyph (Spotify/Claude style)
+        float d = _transHover == 2 ? 31f : 29f;
+        var disc = new RectangleF(pl.X + pl.Width / 2f - d / 2f, pl.Y + pl.Height / 2f - d / 2f, d, d);
+        using (var b = new SolidBrush(AlbumMode ? Color.White : Accent)) g.FillEllipse(b, disc);
+        using (var gb = new SolidBrush(Color.FromArgb(235, 26, 24, 22)))
+            g.DrawString(_np.IsPlaying ? "\uE769" : "\uE768", PlayGlyphFont, gb, disc, CenterFmt);
+    }
+
+    private void DrawGlyphBtn(Graphics g, string glyph, RectangleF rect, bool hover)
+    {
+        Color col = hover ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(212, 214, 210, 203);
+        using var b = new SolidBrush(col);
+        g.DrawString(glyph, IconFont, b, rect, CenterFmt);
     }
 
     // Derive a deep, slightly-muted backdrop shade from the album colour so light lyrics stay readable.
