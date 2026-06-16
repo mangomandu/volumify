@@ -307,12 +307,14 @@ public sealed class TrayAppContext : ApplicationContext
         _startupItem = new ToolStripMenuItem(Loc.T("Windows 시작 시 자동 실행", "Run at Windows startup"), null, (_, _) => ToggleStartup()) { Checked = StartupManager.IsEnabled() };
         settings.DropDownItems.Add(_startupItem);
 
-        var langMenu = new ToolStripMenuItem(Loc.T("언어", "Language"));
+        menu.Items.Add(settings);
+
+        // Language stays at the TOP level, right under Settings, with a permanently bilingual label — so a
+        // non-Korean speaker can switch away from Korean without first guessing that "설정" means Settings.
+        var langMenu = new ToolStripMenuItem("🌐  Language · 언어");
         langMenu.DropDownItems.Add(new ToolStripMenuItem("한국어", null, (_, _) => ApplyLanguage(AppLang.Korean)) { Checked = Loc.Lang == AppLang.Korean });
         langMenu.DropDownItems.Add(new ToolStripMenuItem("English", null, (_, _) => ApplyLanguage(AppLang.English)) { Checked = Loc.Lang == AppLang.English });
-        settings.DropDownItems.Add(langMenu);
-
-        menu.Items.Add(settings);
+        menu.Items.Add(langMenu);
 
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem(Loc.T("종료", "Exit"), null, (_, _) => Exit()));

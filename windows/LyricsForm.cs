@@ -24,8 +24,7 @@ public sealed class LyricsForm : Form
     private static readonly Font ArtistFont = new("Segoe UI", 8.5f);
     private static readonly Font StatusFont = new("Segoe UI", 11f);
     private static readonly Font EmojiFont = new("Segoe UI Emoji", 30f);
-    private static readonly Font IconFont = new("Segoe MDL2 Assets", 11f);      // pin + prev/next glyphs
-    private static readonly Font PlayGlyphFont = new("Segoe MDL2 Assets", 10f); // play/pause inside the disc
+    private static readonly Font IconFont = new("Segoe MDL2 Assets", 11f);      // prev/next glyphs
     private static readonly StringFormat WrapFmt = new() { FormatFlags = 0 };
     private static readonly StringFormat CenterFmt = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
@@ -386,7 +385,7 @@ public sealed class LyricsForm : Form
     private RectangleF PinBox() => new(ClientSize.Width - 57, 7, 19, 23);
     private RectangleF PinHit() => RectangleF.Inflate(PinBox(), 6, 5);
 
-    // Pin toggle: a Segoe MDL2 pushpin glyph riding a soft "active" chip (chip shows when pinned or hovered).
+    // Pin toggle: a downward-pointing pushpin (dome cap + needle) on a soft "active" chip when pinned/hovered.
     private void DrawPin(Graphics g, RectangleF box, bool pinned, bool hover)
     {
         if (pinned || hover)
@@ -399,9 +398,14 @@ public sealed class LyricsForm : Form
             using var cp = RoundedRect(chip, 6f);
             g.FillPath(cb, cp);
         }
-        Color icol = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(hover ? 225 : 170, 178, 174, 168);
+
+        float cx = box.X + box.Width / 2f;
+        float headRx = box.Width * 0.30f, headRy = box.Height * 0.165f, headCy = box.Y + box.Height * 0.32f;
+        float needHalf = box.Width * 0.12f, needTop = headCy + headRy * 0.35f, tipY = box.Y + box.Height * 0.90f;
+        Color icol = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(hover ? 225 : 175, 178, 174, 168);
         using var b = new SolidBrush(icol);
-        g.DrawString("\uE718", IconFont, b, box, CenterFmt); // E718 = pushpin
+        g.FillPolygon(b, new[] { new PointF(cx - needHalf, needTop), new PointF(cx + needHalf, needTop), new PointF(cx, tipY) }); // needle \u2193
+        g.FillEllipse(b, cx - headRx, headCy - headRy, headRx * 2, headRy * 2);                                                  // dome cap on top
     }
 
     // Transport bar (prev / play-pause / next), shown only while pinned — Spotify may be minimized then.
@@ -424,12 +428,25 @@ public sealed class LyricsForm : Form
         DrawGlyphBtn(g, "\uE892", pv, _transHover == 1); // previous
         DrawGlyphBtn(g, "\uE893", nx, _transHover == 3); // next
 
-        // center: filled accent disc with a knocked-out play/pause glyph (Spotify/Claude style)
+        // center: filled accent disc + hand-drawn play/pause (so the triangle's centroid sits dead-centre)
         float d = _transHover == 2 ? 31f : 29f;
-        var disc = new RectangleF(pl.X + pl.Width / 2f - d / 2f, pl.Y + pl.Height / 2f - d / 2f, d, d);
+        float dcx = pl.X + pl.Width / 2f, dcy = pl.Y + pl.Height / 2f;
+        var disc = new RectangleF(dcx - d / 2f, dcy - d / 2f, d, d);
         using (var b = new SolidBrush(AlbumMode ? Color.White : Accent)) g.FillEllipse(b, disc);
-        using (var gb = new SolidBrush(Color.FromArgb(235, 26, 24, 22)))
-            g.DrawString(_np.IsPlaying ? "\uE769" : "\uE768", PlayGlyphFont, gb, disc, CenterFmt);
+        using (var gb = new SolidBrush(Color.FromArgb(238, 26, 24, 22)))
+        {
+            if (_np.IsPlaying)
+            {
+                const float bw = 3.2f, gp = 2.6f, hh = 6.2f;
+                g.FillRectangle(gb, dcx - gp / 2f - bw, dcy - hh, bw, 2 * hh);
+                g.FillRectangle(gb, dcx + gp / 2f, dcy - hh, bw, 2 * hh);
+            }
+            else
+            {
+                const float w = 9f, h = 6.6f; // base at dcx-w/3, apex at dcx+2w/3 \u2192 centroid exactly at dcx
+                g.FillPolygon(gb, new[] { new PointF(dcx - w / 3f, dcy - h), new PointF(dcx - w / 3f, dcy + h), new PointF(dcx + 2 * w / 3f, dcy) });
+            }
+        }
     }
 
     private void DrawGlyphBtn(Graphics g, string glyph, RectangleF rect, bool hover)
