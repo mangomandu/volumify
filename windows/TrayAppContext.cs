@@ -35,6 +35,7 @@ public sealed class TrayAppContext : ApplicationContext
     private ToolStripMenuItem _overlayItem = null!;
     private ToolStripMenuItem _lyricsItem = null!;
     private ToolStripMenuItem _keepItem = null!;
+    private ToolStripMenuItem _albumTintItem = null!;
     private ToolStripMenuItem _loginItem = null!;
     private readonly List<ToolStripMenuItem> _presetItems = new();
     private readonly List<ToolStripMenuItem> _popupItems = new(); // "좁을 때 팝업" toggle mirrored in both menus
@@ -110,6 +111,7 @@ public sealed class TrayAppContext : ApplicationContext
         if (_settings.HasLyricsDockOffset)
             _lyricsForm.SetDockOffset(new Point(_settings.LyricsDockOffsetX, _settings.LyricsDockOffsetY));
         _lyricsForm.SetKeepWhenMinimized(_settings.LyricsKeepWhenMinimized);
+        _lyricsForm.SetAlbumTint(_settings.LyricsAlbumTint);
         _lyricsForm.TrackIdProvider = (title, dur, ct) => _spotifyAuth.IsLinked ? _spotifyAuth.GetCurrentTrackIdAsync(title, dur, ct) : Task.FromResult<string?>(null);
         _lyricsForm.NextTrackProvider = async ct =>
         {
@@ -287,6 +289,9 @@ public sealed class TrayAppContext : ApplicationContext
         _keepItem = new ToolStripMenuItem(Loc.T("최소화해도 가사 유지", "Keep lyrics when Spotify is minimized"), null, (_, _) => ToggleLyricsKeep()) { Checked = _settings.LyricsKeepWhenMinimized };
         settings.DropDownItems.Add(_keepItem);
 
+        _albumTintItem = new ToolStripMenuItem(Loc.T("앨범 색으로 가사 배경", "Tint lyrics from album art"), null, (_, _) => ToggleLyricsAlbumTint()) { Checked = _settings.LyricsAlbumTint };
+        settings.DropDownItems.Add(_albumTintItem);
+
         settings.DropDownItems.Add(new ToolStripSeparator());
 
         var accentMenu = new ToolStripMenuItem(Loc.T("강조색", "Accent color"));
@@ -319,6 +324,14 @@ public sealed class TrayAppContext : ApplicationContext
         _settings.LyricsKeepWhenMinimized = !_settings.LyricsKeepWhenMinimized;
         _keepItem.Checked = _settings.LyricsKeepWhenMinimized;
         _lyricsForm.SetKeepWhenMinimized(_settings.LyricsKeepWhenMinimized);
+        SettingsStore.Save(_settings);
+    }
+
+    private void ToggleLyricsAlbumTint()
+    {
+        _settings.LyricsAlbumTint = !_settings.LyricsAlbumTint;
+        _albumTintItem.Checked = _settings.LyricsAlbumTint;
+        _lyricsForm.SetAlbumTint(_settings.LyricsAlbumTint);
         SettingsStore.Save(_settings);
     }
 

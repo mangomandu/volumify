@@ -24,6 +24,7 @@ public sealed class AppSettings
     public int LyricsDockOffsetX { get; set; }
     public int LyricsDockOffsetY { get; set; }
     public bool LyricsKeepWhenMinimized { get; set; } = true; // keep the lyrics up when Spotify is minimized
+    public bool LyricsAlbumTint { get; set; } = true; // tint the lyrics backdrop from the album-art colour, like Spotify
     public int AccentArgb { get; set; } // 0 = use the default coral; else a custom accent color
     public string MusixmatchToken { get; set; } = ""; // minted once (token.get is rate-limited), reused across runs
     public string SpotifyClientId { get; set; } = "";     // optional: user's Spotify app, for exact-lyrics login

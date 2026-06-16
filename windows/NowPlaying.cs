@@ -1,7 +1,10 @@
+using System.IO;
 using Windows.Foundation;
 using Windows.Media.Control;
+using Windows.Storage.Streams;
 using WinSession = Windows.Media.Control.GlobalSystemMediaTransportControlsSession;
 using WinManager = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager;
+using WinMediaProps = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties;
 
 namespace Volumify;
 
@@ -55,6 +58,10 @@ public sealed class NowPlaying : IDisposable
 
     public event Action? TrackChanged; // a different song is now current
     public event Action? Tick;         // play/pause/seek changed
+    public event Action? ArtColorChanged; // the current track's album-art tint was (re)computed
+
+    /// <summary>Representative colour of the current album art (Color.Empty until the first one decodes).</summary>
+    public Color ArtColor { get; private set; } = Color.Empty;
 
     public NowPlaying()
     {
@@ -139,7 +146,37 @@ public sealed class NowPlaying : IDisposable
             {
                 Current = t;
                 TrackChanged?.Invoke();
+                await UpdateArtColorAsync(mp); // tint the lyrics backdrop from the new cover
             }
+        }
+        catch { }
+    }
+
+    /// <summary>Decode the SMTC album thumbnail and extract its dominant colour (best-effort, off the UI thread).</summary>
+    private async Task UpdateArtColorAsync(WinMediaProps mp)
+    {
+        try
+        {
+            var thumbRef = mp.Thumbnail;
+            if (thumbRef == null) return;
+            using var ras = await thumbRef.OpenReadAsync();
+            if (ras == null || ras.Size == 0 || _disposed) return;
+
+            var bytes = new byte[ras.Size];
+            using (var reader = new DataReader(ras))
+            {
+                await reader.LoadAsync((uint)ras.Size);
+                reader.ReadBytes(bytes);
+            }
+
+            Color c;
+            using (var ms = new MemoryStream(bytes))
+            using (var bmp = new Bitmap(ms))
+                c = AlbumArt.Dominant(bmp);
+
+            if (_disposed) return;
+            ArtColor = c;
+            ArtColorChanged?.Invoke();
         }
         catch { }
     }

@@ -16,8 +16,10 @@ public sealed class LyricsForm : Form
     private static readonly Color TextDim = Color.FromArgb(150, 145, 138);
     private const int HeaderH = 38;
     private const int Pad = 18;
+    private const int HighlightLeadMs = 260; // highlight each line a touch early — SMTC position + output buffering otherwise reads as "a beat late"
 
-    private static readonly Font LineFont = new("Segoe UI", 13f);
+    private static readonly Font LineFont = new("Segoe UI Semibold", 13.5f);             // non-active lines: soft semibold
+    private static readonly Font LineFontActive = new("Segoe UI", 13.5f, FontStyle.Bold); // current line: heavier, Spotify-style
     private static readonly Font HeaderFont = new("Segoe UI Semibold", 9.5f);
     private static readonly Font ArtistFont = new("Segoe UI", 8.5f);
     private static readonly Font StatusFont = new("Segoe UI", 11f);
@@ -48,6 +50,9 @@ public sealed class LyricsForm : Form
     private bool _userScrolled;          // plain lyrics: wheel-controlled
     private long _userScrollTick;
 
+    private bool _albumTint = true;      // tint the backdrop from album art, Spotify-style
+    private Color _artColor = Color.Empty;
+
     public event Action? CloseRequested;
     public event Action<Point>? DockOffsetChanged; // user dragged while docked → persist the new offset
     public Func<string, long, CancellationToken, Task<string?>>? TrackIdProvider; // optional: (title, durationMs, ct) → exact Spotify track id
@@ -55,6 +60,7 @@ public sealed class LyricsForm : Form
 
     public void SetDockOffset(Point? offset) => _dock.SetOffset(offset);
     public void SetKeepWhenMinimized(bool keep) => _dock.SetHideWhenAbsent(!keep);
+    public void SetAlbumTint(bool on) { if (_albumTint == on) return; _albumTint = on; Invalidate(); }
 
     public LyricsForm(NowPlaying np)
     {
@@ -76,6 +82,8 @@ public sealed class LyricsForm : Form
 
         _timer.Tick += (_, _) => OnTick();
         _np.TrackChanged += OnTrackChangedAsync;
+        _np.ArtColorChanged += OnArtColorChanged;
+        _artColor = _np.ArtColor;
 
         // Dock default: sit just off Spotify's right edge, bottom-aligned (near the volume controls).
         _dock = new SpotifyDock(this, (r, size) => new Point(r.Right + 8, r.Bottom - size.Height));
@@ -94,6 +102,7 @@ public sealed class LyricsForm : Form
     {
         _close.Text = "✕";
         _close.Font = new Font("Segoe UI", 9f);
+        _close.BackColor = Color.Transparent; // composite over the painted backdrop (album gradient or warm-black)
         _close.ForeColor = Color.FromArgb(150, 150, 150);
         _close.TextAlign = ContentAlignment.MiddleCenter;
         _close.Size = new Size(26, 24);
@@ -134,6 +143,12 @@ public sealed class LyricsForm : Form
     {
         if (!IsHandleCreated || IsDisposed) return;
         try { BeginInvoke(KickFetch); } catch { }
+    }
+
+    private void OnArtColorChanged()
+    {
+        if (!IsHandleCreated || IsDisposed) return;
+        try { BeginInvoke(() => { _artColor = _np.ArtColor; if (_albumTint) Invalidate(); }); } catch { }
     }
 
     private async void KickFetch()
@@ -209,7 +224,7 @@ public sealed class LyricsForm : Form
             if (_userScrolled && Environment.TickCount64 - _userScrollTick > 4000) _userScrolled = false;
 
             _np.Resync();
-            long pos = _np.PositionMs;
+            long pos = _np.PositionMs + HighlightLeadMs;
             int idx = -1;
             var lines = _lyrics.Lines;
             for (int i = 0; i < lines.Count; i++) { if (lines[i].TimeMs <= pos) idx = i; else break; }
@@ -334,6 +349,15 @@ public sealed class LyricsForm : Form
         g.DrawString(label, StatusFont, tb, _searchBtnRect, CenterFmt);
     }
 
+    private bool AlbumMode => _albumTint && !_artColor.IsEmpty;
+
+    // Derive a deep, slightly-muted backdrop shade from the album colour so light lyrics stay readable.
+    private static Color Backdrop(Color c, float keep, int lift)
+    {
+        int Mix(int v) => Math.Clamp((int)(v * keep) + lift, 0, 255);
+        return Color.FromArgb(Mix(c.R), Mix(c.G), Mix(c.B));
+    }
+
     private static GraphicsPath RoundedRect(RectangleF r, float radius)
     {
         float d = Math.Min(radius * 2, Math.Min(r.Width, r.Height));
@@ -350,9 +374,16 @@ public sealed class LyricsForm : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
-        g.Clear(Bg);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+
+        if (AlbumMode)
+        {
+            using var bg = new LinearGradientBrush(ClientRectangle,
+                Backdrop(_artColor, 0.30f, 12), Backdrop(_artColor, 0.14f, 8), LinearGradientMode.Vertical);
+            g.FillRectangle(bg, ClientRectangle);
+        }
+        else g.Clear(Bg);
 
         // header
         using (var tb = new SolidBrush(TextActive))
@@ -399,23 +430,26 @@ public sealed class LyricsForm : Form
             float y = vp.Top + Pad + row.top - _scroll;
             if (y + row.height < vp.Top || y > vp.Bottom) continue;
 
+            bool album = AlbumMode;
             int alpha; Color col;
             if (_lyrics.Synced)
             {
                 int d = Math.Abs(r - _activeIdx);
-                col = r == _activeIdx ? Accent : TextDim;                 // current line in coral
-                alpha = r == _activeIdx ? 255 : d == 1 ? 170 : d == 2 ? 125 : 90;
-                if (r == _hoverRow && r != _activeIdx) { col = Color.FromArgb(224, 220, 213); alpha = Math.Max(alpha, 225); } // click-to-seek hint
+                bool act = r == _activeIdx;
+                col = album ? Color.White : (act ? Accent : TextDim);     // album mode: bright-white sung line; else accent
+                alpha = act ? 255 : d == 1 ? 170 : d == 2 ? 125 : 90;
+                if (r == _hoverRow && !act) { col = album ? Color.White : Color.FromArgb(224, 220, 213); alpha = Math.Max(alpha, album ? 235 : 225); } // click-to-seek hint
             }
-            else { col = Color.FromArgb(202, 197, 190); alpha = 230; }
+            else { col = album ? Color.White : Color.FromArgb(202, 197, 190); alpha = album ? 235 : 230; }
 
             // soft fade near the viewport edges
             float ly = y + row.height / 2f;
             float edge = Math.Min(ly - vp.Top, vp.Bottom - ly);
             if (edge < 40) alpha = (int)(alpha * Math.Clamp(edge / 40f, 0f, 1f));
 
+            var font = (_lyrics.Synced && r == _activeIdx) ? LineFontActive : LineFont;
             using var b = new SolidBrush(Color.FromArgb(Math.Clamp(alpha, 0, 255), col));
-            g.DrawString(_lyrics.Lines[row.line].Text, LineFont, b,
+            g.DrawString(_lyrics.Lines[row.line].Text, font, b,
                 new RectangleF(Pad, y, vp.Width - 2 * Pad, row.height + 2), WrapFmt);
         }
         g.ResetClip();
@@ -430,8 +464,8 @@ public sealed class LyricsForm : Form
         {
             string text = _lyrics.Lines[i].Text;
             float h;
-            if (text.Length == 0) h = LineFont.GetHeight(g) * 0.6f;
-            else h = g.MeasureString(text, LineFont, Math.Max(10, width), WrapFmt).Height;
+            if (text.Length == 0) h = LineFontActive.GetHeight(g) * 0.6f;
+            else h = g.MeasureString(text, LineFontActive, Math.Max(10, width), WrapFmt).Height; // measure with the boldest weight so a line never re-wraps/clips when it becomes active
             _rows.Add((i, top, h));
             top += h + 8; // line gap
         }
@@ -493,7 +527,7 @@ public sealed class LyricsForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _timer.Stop(); _timer.Dispose(); _fetchCts?.Cancel(); _np.TrackChanged -= OnTrackChangedAsync; _dock.Dispose(); }
+        if (disposing) { _timer.Stop(); _timer.Dispose(); _fetchCts?.Cancel(); _np.TrackChanged -= OnTrackChangedAsync; _np.ArtColorChanged -= OnArtColorChanged; _dock.Dispose(); }
         base.Dispose(disposing);
     }
 }
