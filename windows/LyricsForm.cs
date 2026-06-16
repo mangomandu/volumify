@@ -400,11 +400,18 @@ public sealed class LyricsForm : Form
         }
 
         Color icol = pinned ? (AlbumMode ? Color.White : Accent) : Color.FromArgb(hover ? 225 : 170, 178, 174, 168);
-        using var b = new SolidBrush(icol);
+        // Render the glyph as a path so we can centre its *actual ink* (the font's em box has uneven padding,
+        // which rotation otherwise throws off-centre), then rotate it to point down.
+        using var gp = new GraphicsPath();
+        gp.AddString("\ue718", IconFont.FontFamily, (int)FontStyle.Regular,
+                     IconFont.SizeInPoints * g.DpiY / 72f, PointF.Empty, StringFormat.GenericTypographic);
+        var rb = gp.GetBounds();
         var st = g.Save();
         g.TranslateTransform(box.X + box.Width / 2f, box.Y + box.Height / 2f);
-        g.RotateTransform(270f); // E718 points up by default \u2192 flip it to point down (tweak this angle if it ends up tilted)
-        g.DrawString("\ue718", IconFont, b, new RectangleF(-box.Width / 2f, -box.Height / 2f, box.Width, box.Height), CenterFmt);
+        g.RotateTransform(270f);
+        g.TranslateTransform(-(rb.X + rb.Width / 2f), -(rb.Y + rb.Height / 2f));
+        using var b = new SolidBrush(icol);
+        g.FillPath(b, gp);
         g.Restore(st);
     }
 

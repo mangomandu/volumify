@@ -10,12 +10,11 @@ namespace Volumify;
 /// </summary>
 public sealed class ControlPanelForm : Form
 {
-    private static readonly Color Bg = Color.FromArgb(20, 20, 20);
-    private const int HeaderH = 42;
+    private static readonly Color Bg = Color.FromArgb(28, 27, 25); // warm near-black, matching the lyrics window
+    private const int HeaderH = 32;
 
     // Cached once — these used to be reallocated on every repaint (i.e. every drag tick).
-    private static readonly Font TitleFont = new("Segoe UI Semibold", 10.5f);
-    private static readonly Font PctFont = new("Segoe UI", 20f, FontStyle.Bold);
+    private static readonly Font PctFont = new("Segoe UI", 21f, FontStyle.Bold);
     private static readonly Font DbFont = new("Segoe UI", 9f);
 
     private readonly VolumeModel _model;
@@ -92,7 +91,7 @@ public sealed class ControlPanelForm : Form
         l.MouseLeave += (_, _) => l.ForeColor = Color.FromArgb(150, 150, 150);
     }
 
-    /// <summary>Repaint with the current language (the header title is the only translated text here).</summary>
+    /// <summary>Repaint after a language or theme change.</summary>
     public void RefreshTexts() => Invalidate();
 
     protected override bool ShowWithoutActivation => true;
@@ -110,12 +109,10 @@ public sealed class ControlPanelForm : Form
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // crisp title — no subpixel fringing on the dark header
 
-        using (var tb = new SolidBrush(Color.White))
-            g.DrawString(Loc.T("Spotify 볼륨", "Spotify Volume"), TitleFont, tb, 16, 11);
-
+        // No title — the panel is unmistakably the volume curve, and the graph carries its own axis labels.
         if (!_model.SessionFound) // amber warning dot only when Spotify can't be seen — nothing in normal use
             using (var warn = new SolidBrush(Color.FromArgb(225, 185, 80)))
-                g.FillEllipse(warn, Width - 52, 17, 8, 8);
+                g.FillEllipse(warn, Width - 52, 12, 8, 8);
 
         float felt = VolumeCurve.FeltLoudness(_model.Position, _model.P); // perceived loudness — what you actually hear
         float amp = VolumeCurve.Amplitude(_model.Position, _model.P);     // actual output amplitude → real dB
@@ -124,7 +121,7 @@ public sealed class ControlPanelForm : Form
         string dbText = double.IsNegativeInfinity(db) ? "−∞ dB" : $"{db:0.0} dB";
         {
             var sz = g.MeasureString(pct, PctFont);
-            using var wb = new SolidBrush(Color.White);
+            using var wb = new SolidBrush(Theme.Accent); // the hero number, themed to match the green curve
             g.DrawString(pct, PctFont, wb, (Width - sz.Width) / 2f, Height - 84);
         }
         {
